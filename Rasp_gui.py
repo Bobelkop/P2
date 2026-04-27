@@ -2,6 +2,14 @@ import FreeSimpleGUI as sg
 import Rasp as rasp
 
 
+FARVE_BAGGRUND = "#F5F7FA"
+FARVE_PANEL = "#FFFFFF"
+FARVE_FELT = "#EAF4FF"
+FARVE_KNAP = "#007AFF"
+FARVE_TEKST = "#1D1D1F"
+FARVE_KANT = "#D6EAFB"
+
+
 def _to_float(value, default):
     value = (value or "").strip()
     if value == "":
@@ -78,7 +86,6 @@ def _run_m_mode(values):
     lb = _linkbudget_from_gui(values)
     afstand_manual = rasp.Afstandsformel(drone_lokation, gnb_lokation)
 
-    # Brug gennemsnit af filer som standard, men lad manuel input overstyre.
     resultater = rasp.alle_målinger_fra_json()
     if not resultater:
         raise ValueError("Ingen måledata fundet til standard RSRP/SNR")
@@ -162,6 +169,7 @@ def _build_data_tables(values):
     for filnavn, data in sorteret:
         lat_lon = data.get("lat_lon")
         group_key = _height_group(data.get("height_m"))
+
         if data.get("testnr") is not None:
             testnr = data["testnr"]
             height = data.get("height_m")
@@ -222,11 +230,46 @@ def _build_data_tables(values):
     return rows_by_height, status
 
 
+# Graf
+def _run_graph_mode(values):
+    lb = _linkbudget_from_gui(values)
+
+    graf_stier = rasp.Lav_Grafer(
+        carrier_frequency=lb["carrier_frequency"],
+        re_power=lb["re_power"],
+        thermal_noise=lb["thermal_noise"],
+        noise_figure=lb["noise_figure"],
+        scs_khz=lb["scs_khz"],
+    )
+
+    lines = [
+        "Grafer opdateret",
+        "--------------------------------------------------",
+        f"RSRP graf: {graf_stier['rsrp']}",
+        f"SNR graf: {graf_stier['snr']}",
+        f"Pathloss graf: {graf_stier['pathloss']}",
+        "",
+        "Graferne viser målepunkter for 15 m og 120 m samt teoretisk FSPL-kurve.",
+    ]
+
+    return graf_stier, "\n".join(lines)
+
+
 def main():
+    sg.theme("LightBlue1")
+    sg.set_options(
+        font=("Helvetica", 10),
+        background_color=FARVE_BAGGRUND,
+        text_color=FARVE_TEKST,
+        input_elements_background_color=FARVE_FELT,
+        input_text_color=FARVE_TEKST,
+        button_color=("white", FARVE_KNAP),
+        use_ttk_buttons=False,
+    )
     default_m_rsrp, default_m_snr = _measurement_defaults_from_files()
 
     tab_settings = [
-        [sg.Text("Indstillinger", font=("Segoe UI", 11, "bold"))],
+        [sg.Text("Indstillinger", font=("Helvetica", 11, "bold"))],
         [
             sg.Text("Carrier MHz"), sg.Input(str(rasp.Carrier_Frequency), key="-CF-", size=(8, 1)),
             sg.Text("gNB Tx dBm"), sg.Input(str(rasp.gNB_transmit_power), key="-TXP-", size=(8, 1)),
@@ -242,14 +285,14 @@ def main():
     ]
 
     tab_t = [
-        [sg.Text("Teoretisk mode", font=("Segoe UI", 11, "bold"))],
+        [sg.Text("Teoretisk mode", font=("Helvetica", 11, "bold"))],
         [sg.Text("Afstand i km"), sg.Input("1.0", key="-AFSTAND-T-", size=(18, 1))],
         [sg.Button("Beregn", key="-BEREGN-T-", bind_return_key=True)],
-        [sg.Multiline("", key="-OUT-T-", size=(95, 22), disabled=True, autoscroll=True, expand_x=True, expand_y=True)],
+        [sg.Multiline("", key="-OUT-T-", size=(95, 22), disabled=True, autoscroll=True, expand_x=True, expand_y=True, background_color=FARVE_PANEL, text_color=FARVE_TEKST)],
     ]
 
     tab_m = [
-        [sg.Text("Måling", font=("Segoe UI", 11, "bold"))],
+        [sg.Text("Måling", font=("Helvetica", 11, "bold"))],
         [sg.Text("Drone lokation lat,lon"), sg.Input(f"{rasp.Drone_Lokation[0]},{rasp.Drone_Lokation[1]}", key="-DRONE-M-", size=(24, 1))],
         [sg.Text("gNB lokation lat,lon"), sg.Input("57.0180391,9.7602773", key="-GNB-M-", size=(24, 1))],
         [
@@ -258,11 +301,11 @@ def main():
         ],
         [sg.Text("Tomme felter for Målt RSRP/SNR bruger standardværdier fra fil-data")],
         [sg.Button("Beregn", key="-BEREGN-M-")],
-        [sg.Multiline("", key="-OUT-M-", size=(95, 22), disabled=True, autoscroll=True, expand_x=True, expand_y=True)],
+        [sg.Multiline("", key="-OUT-M-", size=(95, 22), disabled=True, autoscroll=True, expand_x=True, expand_y=True, background_color=FARVE_PANEL, text_color=FARVE_TEKST)],
     ]
 
     tab_data = [
-        [sg.Text("Data", font=("Segoe UI", 11, "bold"))],
+        [sg.Text("Data", font=("Helvetica", 11, "bold"))],
         [sg.Button("Opdater Data", key="-OPDATER-DATA-")],
         [
             sg.TabGroup(
@@ -270,7 +313,7 @@ def main():
                     sg.Tab(
                         "15 m",
                         [
-                            [sg.Text("FSPL", font=("Segoe UI", 10, "bold"))],
+                            [sg.Text("FSPL", font=("Helvetica", 10, "bold"))],
                             [
                                 sg.Table(
                                     values=[],
@@ -291,9 +334,15 @@ def main():
                                     justification="left",
                                     num_rows=5,
                                     expand_x=True,
+                                    text_color=FARVE_TEKST,
+                                    background_color=FARVE_PANEL,
+                                    alternating_row_color=FARVE_FELT,
+                                    selected_row_colors=("white", FARVE_KNAP),
+                                    header_text_color=FARVE_TEKST,
+                                    header_background_color=FARVE_KANT,
                                 )
                             ],
-                            [sg.Text("Hata", font=("Segoe UI", 10, "bold"))],
+                            [sg.Text("Hata", font=("Helvetica", 10, "bold"))],
                             [
                                 sg.Table(
                                     values=[],
@@ -315,6 +364,12 @@ def main():
                                     num_rows=5,
                                     expand_x=True,
                                     expand_y=True,
+                                    text_color=FARVE_TEKST,
+                                    background_color=FARVE_PANEL,
+                                    alternating_row_color=FARVE_FELT,
+                                    selected_row_colors=("white", FARVE_KNAP),
+                                    header_text_color=FARVE_TEKST,
+                                    header_background_color=FARVE_KANT,
                                 )
                             ],
                         ],
@@ -322,7 +377,7 @@ def main():
                     sg.Tab(
                         "120 m",
                         [
-                            [sg.Text("FSPL", font=("Segoe UI", 10, "bold"))],
+                            [sg.Text("FSPL", font=("Helvetica", 10, "bold"))],
                             [
                                 sg.Table(
                                     values=[],
@@ -343,9 +398,15 @@ def main():
                                     justification="left",
                                     num_rows=5,
                                     expand_x=True,
+                                    text_color=FARVE_TEKST,
+                                    background_color=FARVE_PANEL,
+                                    alternating_row_color=FARVE_FELT,
+                                    selected_row_colors=("white", FARVE_KNAP),
+                                    header_text_color=FARVE_TEKST,
+                                    header_background_color=FARVE_KANT,
                                 )
                             ],
-                            [sg.Text("Hata", font=("Segoe UI", 10, "bold"))],
+                            [sg.Text("Hata", font=("Helvetica", 10, "bold"))],
                             [
                                 sg.Table(
                                     values=[],
@@ -367,11 +428,23 @@ def main():
                                     num_rows=5,
                                     expand_x=True,
                                     expand_y=True,
+                                    text_color=FARVE_TEKST,
+                                    background_color=FARVE_PANEL,
+                                    alternating_row_color=FARVE_FELT,
+                                    selected_row_colors=("white", FARVE_KNAP),
+                                    header_text_color=FARVE_TEKST,
+                                    header_background_color=FARVE_KANT,
                                 )
                             ],
                         ],
                     ),
                 ]],
+                title_color=FARVE_TEKST,
+                tab_background_color=FARVE_FELT,
+                selected_title_color="white",
+                selected_background_color=FARVE_KNAP,
+                background_color=FARVE_BAGGRUND,
+                focus_color=FARVE_KNAP,
                 expand_x=True,
                 expand_y=True,
             )
@@ -379,32 +452,59 @@ def main():
         [sg.Text("", key="-DATA-STATUS-")],
     ]
 
+    tab_grafer = [
+        [sg.Text("Grafer", font=("Helvetica", 11, "bold"))],
+        [sg.Text("Viser måledata som grafer og sammenligner med FSPL.")],
+        [sg.Button("Lav grafer", key="-LAV-GRAFER-")],
+        [
+            sg.Button("Vis RSRP", key="-VIS-GRAF-RSRP-"),
+            sg.Button("Vis SNR", key="-VIS-GRAF-SNR-"),
+            sg.Button("Vis Pathloss", key="-VIS-GRAF-PATHLOSS-"),
+        ],
+        [sg.Image("", key="-GRAF-IMAGE-", expand_x=True, expand_y=True)],
+        [sg.Multiline("", key="-OUT-GRAFER-", size=(95, 6), disabled=True, autoscroll=True, expand_x=True, background_color=FARVE_PANEL, text_color=FARVE_TEKST)],
+    ]
+
     layout = [
-        [sg.Text("RSRP Beregner (GUI)", font=("Segoe UI", 14, "bold"))],
+        [sg.Text("RSRP Beregner (GUI)", font=("Helvetica", 14, "bold"))],
         [
             sg.TabGroup(
                 [[
                     sg.Tab("Teoretisk", tab_t),
                     sg.Tab("Måling", tab_m),
                     sg.Tab("Data", tab_data),
+                    sg.Tab("Grafer", tab_grafer),
                     sg.Tab("Indstillinger", tab_settings),
+                    
                 ]],
+                title_color=FARVE_TEKST,
+                tab_background_color=FARVE_FELT,
+                selected_title_color="white",
+                selected_background_color=FARVE_KNAP,
+                background_color=FARVE_BAGGRUND,
+                focus_color=FARVE_KNAP,
                 expand_x=True,
+                expand_y=True,
             )
         ],
         [sg.Button("Luk")],
     ]
 
-    window = sg.Window("RSRP FreeSimpleGUI", layout, finalize=True, resizable=True)
+    window = sg.Window("RSRP FreeSimpleGUI", layout, finalize=True, resizable=True, background_color=FARVE_BAGGRUND)
+
     try:
         window.maximize()
     except Exception:
         pass
 
+    graf_stier = {}
+
     while True:
         event, values = window.read()
+
         if event in (sg.WIN_CLOSED, "Luk"):
             break
+
 
         if event == "-BEREGN-T-":
             try:
@@ -429,7 +529,33 @@ def main():
                 window["-DATA-TABEL-HATA-120-"].update(values=rows_by_height["120m"]["hata"])
                 window["-DATA-STATUS-"].update(status)
             except Exception as exc:
-                window["-OUT-M-"].update(f"Fejl i Data: {exc}")
+                window["-DATA-STATUS-"].update(f"Fejl i Data: {exc}")
+
+        if event == "-LAV-GRAFER-":
+            try:
+                graf_stier, status = _run_graph_mode(values)
+                window["-OUT-GRAFER-"].update(status)
+                window["-GRAF-IMAGE-"].update(filename=graf_stier["rsrp"])
+            except Exception as exc:
+                window["-OUT-GRAFER-"].update(f"Fejl i grafer: {exc}")
+
+        if event in ("-VIS-GRAF-RSRP-", "-VIS-GRAF-SNR-", "-VIS-GRAF-PATHLOSS-"):
+            try:
+                if not graf_stier:
+                    graf_stier, status = _run_graph_mode(values)
+                    window["-OUT-GRAFER-"].update(status)
+
+                if event == "-VIS-GRAF-RSRP-":
+                    window["-GRAF-IMAGE-"].update(filename=graf_stier["rsrp"])
+
+                if event == "-VIS-GRAF-SNR-":
+                    window["-GRAF-IMAGE-"].update(filename=graf_stier["snr"])
+
+                if event == "-VIS-GRAF-PATHLOSS-":
+                    window["-GRAF-IMAGE-"].update(filename=graf_stier["pathloss"])
+
+            except Exception as exc:
+                window["-OUT-GRAFER-"].update(f"Fejl i visning af graf: {exc}")
 
     window.close()
 

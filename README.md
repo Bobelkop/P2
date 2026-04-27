@@ -37,7 +37,7 @@ Python 3.x og følgende pakker:
 - numpy
 - geopy
 - matplotlib
-- FreeSimpleGUI
+- FreeSimpleGUI eller PySimpleGUI
 
 ## Installation
 Opret evt. et virtual environment og installer afhængigheder:
@@ -50,6 +50,12 @@ python -m venv .venv
 source .venv/bin/activate
 
 pip install numpy geopy matplotlib FreeSimpleGUI
+```
+
+Hvis `FreeSimpleGUI` ikke kan installeres i jeres miljø, kan GUI'en også køre med:
+
+```bash
+pip install numpy geopy matplotlib PySimpleGUI
 ```
 
 ## Sådan køres programmet (CLI)

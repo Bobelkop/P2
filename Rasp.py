@@ -5,6 +5,9 @@ import glob
 import os
 import csv
 import re
+import matplotlib
+
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 #Link budget beregninger for RASP
@@ -29,11 +32,12 @@ Drone_Lokation = (57.026180, 9.747177)  # Koordinater: (breddegrad, længdegrad)
 # gNB lokation
 gNB_Lokation = (0, 0)  # Koordinater: (breddegrad, længdegrad)
 
-# Data fra JSON log og definere hvor målingerne ligger 
-root_dir = r"C:\Users\rasmu\OneDrive - Aalborg Universitet\02 semester\Gruppe mappen\nibe 2\nibe"
+# Data fra JSON log og definere hvor målingerne ligger
+script_dir = os.path.dirname(os.path.abspath(__file__))
+root_dir = os.path.join(script_dir, "DATA")
 rows = []
-#Til at finde alle JSON filer i undermapperne
-file_paths = glob.glob(root_dir + r"\**\*.json", recursive=True)
+# Til at finde alle JSON filer i undermapperne
+file_paths = glob.glob(os.path.join(root_dir, "**", "*.json"), recursive=True)
 testlist_csv_path = os.path.join(root_dir, "testlist.csv")
 
 #print(f"Debug: Fundet {len(file_paths)} JSON filer")
@@ -216,6 +220,103 @@ def alle_målinger_fra_json():
             print(f"✗ Fejl ved læsning af {file_path}: {e}")
     
     return resultater
+
+
+def _height_group(height_value):
+    if height_value is None:
+        return "120m"
+    if abs(float(height_value) - 15.0) < 0.6:
+        return "15m"
+    return "120m"
+
+
+def Lav_Grafer(carrier_frequency=None, re_power=None, thermal_noise=None, noise_figure=None, scs_khz=None):
+    carrier_frequency = float(Carrier_Frequency if carrier_frequency is None else carrier_frequency)
+    re_power = float(RE_Power if re_power is None else re_power)
+    thermal_noise = float(Thermal_Noise if thermal_noise is None else thermal_noise)
+    noise_figure = float(NoiseFigure if noise_figure is None else noise_figure)
+    scs_khz = float(Sub_carrier_spacing if scs_khz is None else scs_khz)
+
+    resultater = alle_målinger_fra_json()
+    if not resultater:
+        raise ValueError(f"Ingen måledata fundet i {root_dir}")
+
+    datapunkter = []
+    for data in resultater.values():
+        afstand = data.get("afstand")
+        if afstand is None or afstand <= 0:
+            continue
+
+        datapunkter.append(
+            {
+                "afstand": float(afstand),
+                "rsrp": float(data["rsrp"]),
+                "snr": float(data["snr"]),
+                "pathloss": float(re_power - data["rsrp"]),
+                "gruppe": _height_group(data.get("height_m")),
+            }
+        )
+
+    if not datapunkter:
+        raise ValueError("Ingen gyldige målepunkter med afstand fundet til grafer")
+
+    datapunkter.sort(key=lambda item: item["afstand"])
+    afstande = [item["afstand"] for item in datapunkter]
+    min_afstand = max(min(afstande), 0.001)
+    max_afstand = max(afstande)
+    kurve_x = np.linspace(min_afstand, max_afstand, 250)
+
+    fspl_pathloss = []
+    fspl_rsrp = []
+    fspl_snr = []
+
+    for afstand in kurve_x:
+        fspl = Teoretisk_RASP_FSPL(afstand, carrier_frequency, re_power)
+        fspl_pathloss.append(fspl[0])
+        fspl_rsrp.append(fspl[1])
+        fspl_snr.append(Teoretisk_SNR(fspl[1], thermal_noise, noise_figure, scs_khz))
+
+    grupper = {
+        "15m": {"farve": "#1f77b4", "markor": "o", "label": "Målt 15 m"},
+        "120m": {"farve": "#d62728", "markor": "^", "label": "Målt 120 m"},
+    }
+
+    output_dir = os.path.join(script_dir, "generated_graphs")
+    os.makedirs(output_dir, exist_ok=True)
+
+    def _plot_målinger(figur_navn, y_nøgle, y_label, filnavn):
+        plt.figure(figsize=(10, 6))
+        for gruppe, style in grupper.items():
+            gruppe_punkter = [item for item in datapunkter if item["gruppe"] == gruppe]
+            if not gruppe_punkter:
+                continue
+            plt.scatter(
+                [item["afstand"] for item in gruppe_punkter],
+                [item[y_nøgle] for item in gruppe_punkter],
+                label=style["label"],
+                color=style["farve"],
+                marker=style["markor"],
+                s=55,
+            )
+
+        plt.plot(kurve_x, fspl_rsrp if y_nøgle == "rsrp" else fspl_snr if y_nøgle == "snr" else fspl_pathloss,
+                 label="FSPL", color="#2ca02c", linewidth=2)
+        plt.title(figur_navn)
+        plt.xlabel("Afstand (km)")
+        plt.ylabel(y_label)
+        plt.grid(True, alpha=0.3)
+        plt.legend()
+        plt.tight_layout()
+        sti = os.path.join(output_dir, filnavn)
+        plt.savefig(sti, dpi=150)
+        plt.close()
+        return sti
+
+    return {
+        "rsrp": _plot_målinger("RSRP vs afstand", "rsrp", "RSRP (dBm)", "rsrp_plot.png"),
+        "snr": _plot_målinger("SNR vs afstand", "snr", "SNR (dB)", "snr_plot.png"),
+        "pathloss": _plot_målinger("Pathloss vs afstand", "pathloss", "Pathloss (dB)", "pathloss_plot.png"),
+    }
 
 
 
