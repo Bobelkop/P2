@@ -261,20 +261,6 @@ def Lav_Grafer(carrier_frequency=None, re_power=None, thermal_noise=None, noise_
         raise ValueError("Ingen gyldige målepunkter med afstand fundet til grafer")
 
     datapunkter.sort(key=lambda item: item["afstand"])
-    afstande = [item["afstand"] for item in datapunkter]
-    min_afstand = max(min(afstande), 0.001)
-    max_afstand = max(afstande)
-    kurve_x = np.linspace(min_afstand, max_afstand, 250)
-
-    fspl_pathloss = []
-    fspl_rsrp = []
-    fspl_snr = []
-
-    for afstand in kurve_x:
-        fspl = Teoretisk_RASP_FSPL(afstand, carrier_frequency, re_power)
-        fspl_pathloss.append(fspl[0])
-        fspl_rsrp.append(fspl[1])
-        fspl_snr.append(Teoretisk_SNR(fspl[1], thermal_noise, noise_figure, scs_khz))
 
     grupper = {
         "15m": {"farve": "#1f77b4", "markor": "o", "label": "Målt 15 m"},
@@ -284,14 +270,42 @@ def Lav_Grafer(carrier_frequency=None, re_power=None, thermal_noise=None, noise_
     output_dir = os.path.join(script_dir, "generated_graphs")
     os.makedirs(output_dir, exist_ok=True)
 
-    def _plot_målinger(figur_navn, y_nøgle, y_label, filnavn):
-        plt.figure(figsize=(10, 6))
+    def _plot_målinger(figur_navn, y_nøgle, y_label, filnavn, gruppe_filter=None):
+        plot_punkter = []
+        for item in datapunkter:
+            if gruppe_filter is None or item["gruppe"] == gruppe_filter:
+                plot_punkter.append(item)
+
+        if not plot_punkter:
+            return None
+
+        afstande = [item["afstand"] for item in plot_punkter]
+        min_afstand = max(min(afstande), 0.001)
+        max_afstand = max(max(afstande), min_afstand + 0.001)
+        kurve_x = np.linspace(min_afstand, max_afstand, 250)
+        kurve_y = []
+
+        for afstand in kurve_x:
+            fspl = Teoretisk_RASP_FSPL(afstand, carrier_frequency, re_power)
+            if y_nøgle == "rsrp":
+                kurve_y.append(fspl[1])
+            elif y_nøgle == "snr":
+                kurve_y.append(Teoretisk_SNR(fspl[1], thermal_noise, noise_figure, scs_khz))
+            else:
+                kurve_y.append(fspl[0])
+
+        kurve_x_meter = kurve_x * 1000
+
+        plt.figure(figsize=(10, 5))
         for gruppe, style in grupper.items():
-            gruppe_punkter = [item for item in datapunkter if item["gruppe"] == gruppe]
+            if gruppe_filter is not None and gruppe != gruppe_filter:
+                continue
+
+            gruppe_punkter = [item for item in plot_punkter if item["gruppe"] == gruppe]
             if not gruppe_punkter:
                 continue
             plt.scatter(
-                [item["afstand"] for item in gruppe_punkter],
+                [item["afstand"] * 1000 for item in gruppe_punkter],
                 [item[y_nøgle] for item in gruppe_punkter],
                 label=style["label"],
                 color=style["farve"],
@@ -299,23 +313,28 @@ def Lav_Grafer(carrier_frequency=None, re_power=None, thermal_noise=None, noise_
                 s=55,
             )
 
-        plt.plot(kurve_x, fspl_rsrp if y_nøgle == "rsrp" else fspl_snr if y_nøgle == "snr" else fspl_pathloss,
-                 label="FSPL", color="#2ca02c", linewidth=2)
+        plt.plot(kurve_x_meter, kurve_y, label="FSPL", color="#2ca02c", linewidth=2)
         plt.title(figur_navn)
-        plt.xlabel("Afstand (km)")
+        plt.xlabel("Afstand (m)")
         plt.ylabel(y_label)
         plt.grid(True, alpha=0.3)
         plt.legend()
         plt.tight_layout()
         sti = os.path.join(output_dir, filnavn)
-        plt.savefig(sti, dpi=150)
+        plt.savefig(sti, dpi=110)
         plt.close()
         return sti
 
     return {
-        "rsrp": _plot_målinger("RSRP vs afstand", "rsrp", "RSRP (dBm)", "rsrp_plot.png"),
-        "snr": _plot_målinger("SNR vs afstand", "snr", "SNR (dB)", "snr_plot.png"),
-        "pathloss": _plot_målinger("Pathloss vs afstand", "pathloss", "Pathloss (dB)", "pathloss_plot.png"),
+        "rsrp": _plot_målinger("RSRP vs afstand - alle højder", "rsrp", "RSRP (dBm)", "rsrp_plot.png"),
+        "snr": _plot_målinger("SNR vs afstand - alle højder", "snr", "SNR (dB)", "snr_plot.png"),
+        "pathloss": _plot_målinger("Pathloss vs afstand - alle højder", "pathloss", "Pathloss (dB)", "pathloss_plot.png"),
+        "rsrp_15m": _plot_målinger("RSRP vs afstand - 15 m", "rsrp", "RSRP (dBm)", "rsrp_plot_15m.png", "15m"),
+        "snr_15m": _plot_målinger("SNR vs afstand - 15 m", "snr", "SNR (dB)", "snr_plot_15m.png", "15m"),
+        "pathloss_15m": _plot_målinger("Pathloss vs afstand - 15 m", "pathloss", "Pathloss (dB)", "pathloss_plot_15m.png", "15m"),
+        "rsrp_120m": _plot_målinger("RSRP vs afstand - 120 m", "rsrp", "RSRP (dBm)", "rsrp_plot_120m.png", "120m"),
+        "snr_120m": _plot_målinger("SNR vs afstand - 120 m", "snr", "SNR (dB)", "snr_plot_120m.png", "120m"),
+        "pathloss_120m": _plot_målinger("Pathloss vs afstand - 120 m", "pathloss", "Pathloss (dB)", "pathloss_plot_120m.png", "120m"),
     }
 
 
