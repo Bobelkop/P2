@@ -2,6 +2,7 @@ import FreeSimpleGUI as sg
 import Rasp as rasp
 
 
+
 FARVE_BAGGRUND = "#F5F7FA"
 FARVE_PANEL = "#FFFFFF"
 FARVE_FELT = "#EAF4FF"
@@ -248,8 +249,14 @@ def _run_graph_mode(values):
         f"RSRP graf: {graf_stier['rsrp']}",
         f"SNR graf: {graf_stier['snr']}",
         f"Pathloss graf: {graf_stier['pathloss']}",
+        f"RSRP 15 m graf: {graf_stier['rsrp_15m']}",
+        f"SNR 15 m graf: {graf_stier['snr_15m']}",
+        f"Pathloss 15 m graf: {graf_stier['pathloss_15m']}",
+        f"RSRP 120 m graf: {graf_stier['rsrp_120m']}",
+        f"SNR 120 m graf: {graf_stier['snr_120m']}",
+        f"Pathloss 120 m graf: {graf_stier['pathloss_120m']}",
         "",
-        "Graferne viser målepunkter for 15 m og 120 m samt teoretisk FSPL-kurve.",
+        "Der er lavet grafer for alle data samlet, 15 m og 120 m.",
     ]
 
     return graf_stier, "\n".join(lines)
@@ -457,9 +464,22 @@ def main():
         [sg.Text("Viser måledata som grafer og sammenligner med FSPL.")],
         [sg.Button("Lav grafer", key="-LAV-GRAFER-")],
         [
+            sg.Text("Alle data", size=(8, 1)),
             sg.Button("Vis RSRP", key="-VIS-GRAF-RSRP-"),
             sg.Button("Vis SNR", key="-VIS-GRAF-SNR-"),
             sg.Button("Vis Pathloss", key="-VIS-GRAF-PATHLOSS-"),
+        ],
+        [
+            sg.Text("15 m", size=(8, 1)),
+            sg.Button("Vis RSRP", key="-VIS-GRAF-RSRP-15-"),
+            sg.Button("Vis SNR", key="-VIS-GRAF-SNR-15-"),
+            sg.Button("Vis Pathloss", key="-VIS-GRAF-PATHLOSS-15-"),
+        ],
+        [
+            sg.Text("120 m", size=(8, 1)),
+            sg.Button("Vis RSRP", key="-VIS-GRAF-RSRP-120-"),
+            sg.Button("Vis SNR", key="-VIS-GRAF-SNR-120-"),
+            sg.Button("Vis Pathloss", key="-VIS-GRAF-PATHLOSS-120-"),
         ],
         [sg.Image("", key="-GRAF-IMAGE-", expand_x=True, expand_y=True)],
         [sg.Multiline("", key="-OUT-GRAFER-", size=(95, 6), disabled=True, autoscroll=True, expand_x=True, background_color=FARVE_PANEL, text_color=FARVE_TEKST)],
@@ -539,7 +559,17 @@ def main():
             except Exception as exc:
                 window["-OUT-GRAFER-"].update(f"Fejl i grafer: {exc}")
 
-        if event in ("-VIS-GRAF-RSRP-", "-VIS-GRAF-SNR-", "-VIS-GRAF-PATHLOSS-"):
+        if event in (
+            "-VIS-GRAF-RSRP-",
+            "-VIS-GRAF-SNR-",
+            "-VIS-GRAF-PATHLOSS-",
+            "-VIS-GRAF-RSRP-15-",
+            "-VIS-GRAF-SNR-15-",
+            "-VIS-GRAF-PATHLOSS-15-",
+            "-VIS-GRAF-RSRP-120-",
+            "-VIS-GRAF-SNR-120-",
+            "-VIS-GRAF-PATHLOSS-120-",
+        ):
             try:
                 if not graf_stier:
                     graf_stier, status = _run_graph_mode(values)
@@ -553,6 +583,24 @@ def main():
 
                 if event == "-VIS-GRAF-PATHLOSS-":
                     window["-GRAF-IMAGE-"].update(filename=graf_stier["pathloss"])
+
+                if event == "-VIS-GRAF-RSRP-15-":
+                    window["-GRAF-IMAGE-"].update(filename=graf_stier["rsrp_15m"])
+
+                if event == "-VIS-GRAF-SNR-15-":
+                    window["-GRAF-IMAGE-"].update(filename=graf_stier["snr_15m"])
+
+                if event == "-VIS-GRAF-PATHLOSS-15-":
+                    window["-GRAF-IMAGE-"].update(filename=graf_stier["pathloss_15m"])
+
+                if event == "-VIS-GRAF-RSRP-120-":
+                    window["-GRAF-IMAGE-"].update(filename=graf_stier["rsrp_120m"])
+
+                if event == "-VIS-GRAF-SNR-120-":
+                    window["-GRAF-IMAGE-"].update(filename=graf_stier["snr_120m"])
+
+                if event == "-VIS-GRAF-PATHLOSS-120-":
+                    window["-GRAF-IMAGE-"].update(filename=graf_stier["pathloss_120m"])
 
             except Exception as exc:
                 window["-OUT-GRAFER-"].update(f"Fejl i visning af graf: {exc}")
