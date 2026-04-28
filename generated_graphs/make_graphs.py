@@ -271,8 +271,11 @@ def lav_grafer():
     min_afstand = max(min(afstande), 0.001)
     max_afstand = max(max(afstande), min_afstand + 0.1)
 
+    # Logaritmisk fordeling af x-punkter giver en jævn kurve på log-skala.
+    log_min = math.log10(min_afstand)
+    log_max = math.log10(max_afstand)
     kurve_x = [
-        min_afstand + (max_afstand - min_afstand) * i / 249
+        10 ** (log_min + (log_max - log_min) * i / 249)
         for i in range(250)
     ]
 
@@ -314,6 +317,7 @@ def lav_grafer():
         plt.title(titel)
         plt.xlabel("Afstand (km)")
         plt.ylabel(y_label)
+        plt.xscale("log")
         plt.grid(True, alpha=0.3)
         plt.legend()
         plt.tight_layout()

@@ -127,14 +127,14 @@ def _run_m_mode(values):
         f"  RSRP: {fspl[1]:.2f} dBm",
         f"  SNR: {snr_fspl:.2f} dB",
         f"  Afvigelse ift SNR: {afv_snr_fspl:.2f} dB",
-        f"  Afvigelse ift. RSRP-måling: {afv_rsrp_fspl:.2f} %",
+        f"  Afvigelse ift. RSRP-måling: {afv_rsrp_fspl:.2f} dB",
         "",
         "Hata",
         f"  Pathloss: {hata[0]:.2f} dB",
         f"  RSRP: {hata[1]:.2f} dBm",
         f"  SNR: {snr_hata:.2f} dB",
         f"  Afvigelse ift SNR: {afv_snr_hata:.2f} dB",
-        f"  Afvigelse ift. RSRP-måling: {afv_rsrp_hata:.2f} %",
+        f"  Afvigelse ift. RSRP-måling: {afv_rsrp_hata:.2f} dB",
         "",
     ]
 
@@ -143,7 +143,6 @@ def _run_m_mode(values):
 
 def _build_data_tables(values):
     lb = _linkbudget_from_gui(values)
-
     resultater = rasp.alle_målinger_fra_json()
     sorteret = sorted(
         resultater.items(),
@@ -192,7 +191,6 @@ def _build_data_tables(values):
         else:
             afstand = 0.0
             coord_txt = "-"
-
         fspl = rasp.Teoretisk_RASP_FSPL(afstand, lb["carrier_frequency"], lb["re_power"])
         hata = rasp.Teoretisk_RASP_Hata(afstand, lb["carrier_frequency"], lb["re_power"])
         snr_fspl = rasp.Teoretisk_SNR(fspl[1], lb["thermal_noise"], lb["noise_figure"], lb["scs_khz"])
@@ -234,7 +232,6 @@ def _build_data_tables(values):
 # Graf
 def _run_graph_mode(values):
     lb = _linkbudget_from_gui(values)
-
     graf_stier = rasp.Lav_Grafer(
         carrier_frequency=lb["carrier_frequency"],
         re_power=lb["re_power"],
@@ -273,7 +270,8 @@ def main():
         button_color=("white", FARVE_KNAP),
         use_ttk_buttons=False,
     )
-    default_m_rsrp, default_m_snr = _measurement_defaults_from_files()
+    # Avoid heavy parsing on startup; compute defaults lazily when user requests update
+    default_m_rsrp, default_m_snr = "", ""
 
     tab_settings = [
         [sg.Text("Indstillinger", font=("Helvetica", 11, "bold"))],
@@ -333,7 +331,7 @@ def main():
                                         "Teoretisk RSRP",
                                         "Teoretisk SNR",
                                         "Afvigelse SNR",
-                                        "Teoretisk afvigelse RSRP (%)",
+                                        "Teoretisk afvigelse RSRP (dB)",
                                     ],
                                     key="-DATA-TABEL-FSPL-15-",
                                     auto_size_columns=False,
@@ -362,7 +360,7 @@ def main():
                                         "Teoretisk RSRP",
                                         "Teoretisk SNR",
                                         "Afvigelse SNR",
-                                        "Teoretisk afvigelse RSRP (%)",
+                                        "Teoretisk afvigelse RSRP (dB)",
                                     ],
                                     key="-DATA-TABEL-HATA-15-",
                                     auto_size_columns=False,
@@ -397,7 +395,7 @@ def main():
                                         "Teoretisk RSRP",
                                         "Teoretisk SNR",
                                         "Afvigelse SNR",
-                                        "Teoretisk afvigelse RSRP (%)",
+                                        "Teoretisk afvigelse RSRP (dB)",
                                     ],
                                     key="-DATA-TABEL-FSPL-120-",
                                     auto_size_columns=False,
@@ -426,7 +424,7 @@ def main():
                                         "Teoretisk RSRP",
                                         "Teoretisk SNR",
                                         "Afvigelse SNR",
-                                        "Teoretisk afvigelse RSRP (%)",
+                                        "Teoretisk afvigelse RSRP (dB)",
                                     ],
                                     key="-DATA-TABEL-HATA-120-",
                                     auto_size_columns=False,
@@ -542,6 +540,11 @@ def main():
 
         if event == "-OPDATER-DATA-":
             try:
+                # Force a fresh parse of measurement files (clears cache first)
+                try:
+                    rasp.clear_measurement_cache()
+                except Exception:
+                    pass
                 rows_by_height, status = _build_data_tables(values)
                 window["-DATA-TABEL-FSPL-15-"].update(values=rows_by_height["15m"]["fspl"])
                 window["-DATA-TABEL-HATA-15-"].update(values=rows_by_height["15m"]["hata"])

@@ -36,8 +36,18 @@ gNB_Lokation = (0, 0)  # Koordinater: (breddegrad, længdegrad)
 script_dir = os.path.dirname(os.path.abspath(__file__))
 root_dir = os.path.join(script_dir, "DATA")
 rows = []
-# Til at finde alle JSON filer i undermapperne
-file_paths = glob.glob(os.path.join(root_dir, "**", "*.json"), recursive=True)
+# Til at finde alle relevante målefiler i undermapperne
+# Only consider measurement files (cell_log.json and *-radio.log) to speed parsing
+measurement_file_paths = []
+measurement_file_paths.extend(glob.glob(os.path.join(root_dir, "**", "cell_log.json"), recursive=True))
+measurement_file_paths.extend(glob.glob(os.path.join(root_dir, "**", "*-radio.log"), recursive=True))
+
+# Keep a cache of parsed measurements to avoid re-parsing on every UI action
+_MEASUREMENT_CACHE = None
+
+def clear_measurement_cache():
+    global _MEASUREMENT_CACHE
+    _MEASUREMENT_CACHE = None
 testlist_csv_path = os.path.join(root_dir, "testlist.csv")
 
 #print(f"Debug: Fundet {len(file_paths)} JSON filer")
@@ -47,8 +57,9 @@ testlist_csv_path = os.path.join(root_dir, "testlist.csv")
 # Teoretisk RASP Hata 
 def Teoretisk_RASP_Hata(data, Carrier_Frequency, RE_Power):
     Afstand = data #km
+    # Undgå fejl ved distance 0: brug lille epsilon i stedet
     if Afstand <= 0:
-        raise ValueError("Afstand skal vaere stoerre end 0 km")
+        Afstand = 0.001
     pathloss =69.55 + 26.16 * np.log10(Carrier_Frequency) - 13.82 * np.log10(12) - 0.1 + ((44.9 - 6.55 * np.log10(12)) * np.log10(Afstand))  # dB
     RSRP = RE_Power - pathloss  # dBm
     return pathloss, RSRP
@@ -57,8 +68,9 @@ def Teoretisk_RASP_Hata(data, Carrier_Frequency, RE_Power):
 # Teoretisk RASP FSPL (Free Space Path Loss)
 def Teoretisk_RASP_FSPL(data, Carrier_Frequency, RE_Power):
     Afstand = data  # km
+    # Undgå fejl ved distance 0: brug lille epsilon i stedet
     if Afstand <= 0:
-        raise ValueError("Afstand skal vaere stoerre end 0 km")
+        Afstand = 0.001
     pathloss = 20 * np.log10(Afstand) + 20 * np.log10(Carrier_Frequency) + 32.44  # dB
     RSRP = RE_Power - pathloss  # dBm
     return pathloss, RSRP
@@ -67,7 +79,7 @@ def Afvigelse_Af_Målinger_På_Teori_RSRP(målinger,RSRP):
     Målt_RSRP = målinger
     if RSRP == 0:
         raise ValueError("RSRP maa ikke vaere 0 ved afvigelsesberegning")
-    Afvigelse = ((Målt_RSRP - RSRP)/abs(RSRP))*100
+    Afvigelse = Målt_RSRP - RSRP
     return Afvigelse
 
 
@@ -111,32 +123,51 @@ def Teoretisk_SNR(RSRP, Thermal_Noise, NoiseFigure,Sub_carrier_spacing):
 
 def Data_Fra_Json(rows, file_path):
     rows.clear()  # Tøm listen FØR vi læser på ny fil
-    
-    with open(file_path, "r", encoding="utf-8-sig") as file:
+    # Støtt både JSON-linjer og ikke-JSON .test filer ved regex-udtræk
+    rsrp_values = []
+    snr_values = []
+
+    with open(file_path, "r", encoding="utf-8-sig", errors="ignore") as file:
         for line in file:
             line = line.strip()
             if not line:
                 continue
+
+            # Forsøg JSON først
+            parsed = False
             try:
-                object = json.loads(line)
-            except json.JSONDecodeError:
-                # Spring ugyldige linjer over i stedet for at kassere hele filen.
+                obj = json.loads(line)
+                if isinstance(obj, dict) and "rsrp" in obj and "snr" in obj:
+                    try:
+                        rsrp_values.append(float(str(obj["rsrp"]).replace(",", ".").split()[0]))
+                        snr_values.append(float(str(obj["snr"]).replace(",", ".").split()[0]))
+                        parsed = True
+                    except Exception:
+                        parsed = False
+            except Exception:
+                parsed = False
+
+            if parsed:
                 continue
 
-            # Konverter rsrp og snr til float og tilføj til rows
-            if "rsrp" not in object or "snr" not in object:
-                continue
+            # Fallback: regex-søg efter rsrp/snr i linjen (som i make_graphs)
+            rsrp_match = re.search(r'"?rsrp"?\s*[:=]\s*"?(-?\d+(?:[.,]\d+)?)', line, re.IGNORECASE)
+            snr_match = re.search(r'"?snr"?\s*[:=]\s*"?(-?\d+(?:[.,]\d+)?)', line, re.IGNORECASE)
 
-            rsrp_str = str(object["rsrp"]).replace(",", ".").split()[0]
-            snr_str = str(object["snr"]).replace(",", ".").split()[0]
+            if rsrp_match and snr_match:
+                try:
+                    rsrp_values.append(float(rsrp_match.group(1).replace(",", ".")))
+                    snr_values.append(float(snr_match.group(1).replace(",", ".")))
+                except Exception:
+                    continue
 
-            try:
-                object["rsrp.number"] = float(rsrp_str)
-                object["snr.number"] = float(snr_str)
-            except ValueError:
-                continue
+    if not rsrp_values or not snr_values:
+        raise ValueError("Ingen gyldige rsrp/snr-linjer i filen")
 
-            rows.append(object)
+    rsrp_mean = sum(rsrp_values) / len(rsrp_values)
+    snr_mean = sum(snr_values) / len(snr_values)
+
+    return rsrp_mean, snr_mean
 
     if not rows:
         raise ValueError("Ingen gyldige rsrp/snr-linjer i filen")
@@ -167,10 +198,21 @@ def Hent_Test_Metadata(csv_path):
                 height_m = float(height_raw) if height_raw != "" else None
             except ValueError:
                 height_m = None
+            
+            # Læs drone-koordinater hvis de findes
+            drone_lat_raw = str(row.get("drone_latitude", "")).strip()
+            drone_lon_raw = str(row.get("drone_longitude", "")).strip()
+            try:
+                drone_lat = float(drone_lat_raw) if drone_lat_raw != "" else None
+                drone_lon = float(drone_lon_raw) if drone_lon_raw != "" else None
+                drone_location = (drone_lat, drone_lon) if (drone_lat is not None and drone_lon is not None) else None
+            except ValueError:
+                drone_location = None
 
             metadata[testnr] = {
                 "lat_lon": (latitude, longitude),
                 "height_m": height_m,
+                "drone_location": drone_location,
             }
     return metadata
 
@@ -188,11 +230,15 @@ def hent_nummer_fra_path(file_path):
         return None
     return int(match.group(1))
 
-def alle_målinger_fra_json():
+def alle_målinger_fra_json(drone_lokation=None, force_reload=False):
+    global _MEASUREMENT_CACHE
+    if _MEASUREMENT_CACHE is not None and not force_reload:
+        return _MEASUREMENT_CACHE
+
     resultater = {}
     test_metadata = Hent_Test_Metadata(testlist_csv_path)
-    
-    for file_path in file_paths:
+
+    for file_path in measurement_file_paths:
         try:
             rsrp_mean, snr_mean = Data_Fra_Json([], file_path)
             filnavn = os.path.relpath(file_path, root_dir)
@@ -200,6 +246,12 @@ def alle_målinger_fra_json():
             meta = test_metadata.get(testnr, {})
             lat_lon = meta.get("lat_lon")
             height_m = meta.get("height_m")
+
+            # Brug drone-lokation fra CSV hvis den findes, ellers brug parameter, ellers global
+            test_drone_loc = meta.get("drone_location")
+            if test_drone_loc is None:
+                test_drone_loc = drone_lokation if drone_lokation else Drone_Lokation
+
             resultater[filnavn] = {
                 'rsrp': rsrp_mean,
                 'snr': snr_mean,
@@ -207,7 +259,7 @@ def alle_målinger_fra_json():
                 "testnr": testnr,
                 "lat_lon": lat_lon,
                 "height_m": height_m,
-                "afstand": Afstandsformel(Drone_Lokation, lat_lon) if lat_lon else None
+                "afstand": Afstandsformel(test_drone_loc, lat_lon) if lat_lon else None
             }
             #if lat_lon is None:
                #print(f"✓ {filnavn}: RSRP={rsrp_mean:.2f} dBm, SNR={snr_mean:.2f} dB")
@@ -219,6 +271,7 @@ def alle_målinger_fra_json():
         except Exception as e:
             print(f"✗ Fejl ved læsning af {file_path}: {e}")
     
+    _MEASUREMENT_CACHE = resultater
     return resultater
 
 
@@ -230,14 +283,18 @@ def _height_group(height_value):
     return "120m"
 
 
-def Lav_Grafer(carrier_frequency=None, re_power=None, thermal_noise=None, noise_figure=None, scs_khz=None):
+def Lav_Grafer(carrier_frequency=None, re_power=None, thermal_noise=None, noise_figure=None, scs_khz=None, drone_lokation=None):
+    from scipy.stats import linregress
+    
     carrier_frequency = float(Carrier_Frequency if carrier_frequency is None else carrier_frequency)
     re_power = float(RE_Power if re_power is None else re_power)
     thermal_noise = float(Thermal_Noise if thermal_noise is None else thermal_noise)
     noise_figure = float(NoiseFigure if noise_figure is None else noise_figure)
     scs_khz = float(Sub_carrier_spacing if scs_khz is None else scs_khz)
+    if drone_lokation is None:
+        drone_lokation = Drone_Lokation
 
-    resultater = alle_målinger_fra_json()
+    resultater = alle_målinger_fra_json(drone_lokation)
     if not resultater:
         raise ValueError(f"Ingen måledata fundet i {root_dir}")
 
@@ -282,7 +339,7 @@ def Lav_Grafer(carrier_frequency=None, re_power=None, thermal_noise=None, noise_
         afstande = [item["afstand"] for item in plot_punkter]
         min_afstand = max(min(afstande), 0.001)
         max_afstand = max(max(afstande), min_afstand + 0.001)
-        kurve_x = np.linspace(min_afstand, max_afstand, 250)
+        kurve_x = np.logspace(np.log10(min_afstand), np.log10(max_afstand), 250)
         kurve_y = []
 
         for afstand in kurve_x:
@@ -295,6 +352,18 @@ def Lav_Grafer(carrier_frequency=None, re_power=None, thermal_noise=None, noise_
                 kurve_y.append(fspl[0])
 
         kurve_x_meter = kurve_x * 1000
+
+        # Beregn regression for alle målepunkter
+        måle_x = np.array([item["afstand"] * 1000 for item in plot_punkter])  # meter (log scale)
+        måle_y = np.array([item[y_nøgle] for item in plot_punkter])
+        
+        # Brug log(afstand) til regression (lineær i log-scale)
+        måle_x_log = np.log10(måle_x)
+        slope, intercept, r_value, p_value, std_err = linregress(måle_x_log, måle_y)
+        r_squared = r_value ** 2
+        
+        # Regress linje
+        regression_y = slope * måle_x_log + intercept
 
         plt.figure(figsize=(10, 5))
         for gruppe, style in grupper.items():
@@ -313,10 +382,13 @@ def Lav_Grafer(carrier_frequency=None, re_power=None, thermal_noise=None, noise_
                 s=55,
             )
 
-        plt.plot(kurve_x_meter, kurve_y, label="FSPL", color="#2ca02c", linewidth=2)
+        plt.plot(kurve_x_meter, kurve_y, label="FSPL teoretisk", color="#2ca02c", linewidth=2)
+        plt.plot(måle_x, regression_y, label=f"Regression (R² = {r_squared:.3f})", 
+                color="#ff7f0e", linewidth=2, linestyle="--")
         plt.title(figur_navn)
         plt.xlabel("Afstand (m)")
         plt.ylabel(y_label)
+        plt.xscale("log")
         plt.grid(True, alpha=0.3)
         plt.legend()
         plt.tight_layout()
