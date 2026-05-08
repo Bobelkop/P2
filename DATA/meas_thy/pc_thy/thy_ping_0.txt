@@ -1,0 +1,18 @@
+PING 10.45.0.25 (10.45.0.25) 56(84) bytes of data.
+[1777624557.595240] 64 bytes from 10.45.0.25: icmp_seq=1 ttl=63 time=27.2 ms
+[1777624557.715110] 64 bytes from 10.45.0.25: icmp_seq=2 ttl=63 time=46.5 ms
+[1777624557.795519] 64 bytes from 10.45.0.25: icmp_seq=3 ttl=63 time=27.0 ms
+[1777624557.915270] 64 bytes from 10.45.0.25: icmp_seq=4 ttl=63 time=46.4 ms
+[1777624557.994921] 64 bytes from 10.45.0.25: icmp_seq=5 ttl=63 time=25.4 ms
+[1777624558.115242] 64 bytes from 10.45.0.25: icmp_seq=6 ttl=63 time=45.0 ms
+[1777624558.195715] 64 bytes from 10.45.0.25: icmp_seq=7 ttl=63 time=25.1 ms
+[1777624558.315017] 64 bytes from 10.45.0.25: icmp_seq=8 ttl=63 time=44.1 ms
+[1777624558.395206] 64 bytes from 10.45.0.25: icmp_seq=9 ttl=63 time=23.8 ms
+[1777624558.516078] 64 bytes from 10.45.0.25: icmp_seq=10 ttl=63 time=44.5 ms
+[1777624558.595558] 64 bytes from 10.45.0.25: icmp_seq=11 ttl=63 time=23.1 ms
+[1777624558.715534] 64 bytes from 10.45.0.25: icmp_seq=12 ttl=63 time=42.7 ms
+[1777624558.795721] 64 bytes from 10.45.0.25: icmp_seq=13 ttl=63 time=22.9 ms
+[1777624558.915294] 64 bytes from 10.45.0.25: icmp_seq=14 ttl=63 time=42.2 ms
+[1777624558.995532] 64 bytes from 10.45.0.25: icmp_seq=15 ttl=63 time=21.9 ms
+[1777624559.115271] 64 bytes from 10.45.0.25: icmp_seq=16 ttl=63 time=41.3 ms
+[1777624559.196051] 64 bytes from 10.45.0.25: icmp_seq=17 ttl=63 time=21.4 ms
