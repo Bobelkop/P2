@@ -15,11 +15,11 @@ Default-værdier fra mail (Miguel) og SCU2070-datablade:
   Tx power UE   : 23 dBm   (downlink sender, fra mailen)
   gNB ant. gain : 11 dBi   (SCU2070: ANT1≈11.5 dBi @ 3700 MHz,
                               ANT2≈11.0 dBi @ 3700–3800 MHz; fra databladet)
-  UE  ant. gain : -5 dBi   (2JW1183-C952B @ 3780 MHz; ikke optimeret til
+  UE  ant. gain : -5 dBi   (2JW1183-C952B omkring 3779 MHz; ikke optimeret til
                               n78-båndet — fra mailen)
   Kabeltab gNB  : 2  dB    (lange kabler, fra mailen)
   Kabeltab UE   : 0.5 dB   (korte kabler, fra mailen)
-  Frekvens      : 3780 MHz  (n78-bånd, fra mailen)
+  Frekvens      : 3779 MHz  (brugt i rapporten)
   Sensitivity   : -102 dBm  (Teltonika 5G modem; termisk støjgulv
                               20 MHz + NF≈7 dB + SNR_min≈-6 dB ≈ -100 dBm.
                               NB: -120/-125 dBm er RSRP-threshold per
@@ -41,6 +41,12 @@ Two-ray ground-reflection antages først at dominere ved ~70 km
 
 import tkinter as tk
 from tkinter import ttk, messagebox
+import os
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+MPL_CONFIG_DIR = os.path.join(SCRIPT_DIR, ".matplotlib")
+os.makedirs(MPL_CONFIG_DIR, exist_ok=True)
+os.environ.setdefault("MPLCONFIGDIR", MPL_CONFIG_DIR)
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -85,7 +91,7 @@ class LinkBudgetGUI:
     COMMON_FIELDS = [
         ("Øvrige tab",       "misc_loss",    0.0,  "dB"),
         ("Fade margin",      "fade_margin", 10.0,  "dB"),
-        ("Frekvens",         "freq_mhz",  3780.0,  "MHz"),
+        ("Frekvens",         "freq_mhz",  3779.0,  "MHz"),
         ("Min. afstand",     "min_dist_m", 118.0,  "m"),
         ("Plotafstand",      "plot_km",     50.0,  "km"),
         ("gNB-højde h_t",    "h_gnb",        1.5,  "m"),

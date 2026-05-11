@@ -1,0 +1,4 @@
+__pycache__/
+*.pyc
+.matplotlib/
+generated_graphs/linkbudget_margin.png
