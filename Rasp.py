@@ -5,6 +5,12 @@ import glob
 import os
 import csv
 import re
+
+script_dir = os.path.dirname(os.path.abspath(__file__))
+_mpl_config_dir = os.path.join(script_dir, ".matplotlib")
+os.makedirs(_mpl_config_dir, exist_ok=True)
+os.environ.setdefault("MPLCONFIGDIR", _mpl_config_dir)
+
 import matplotlib
 
 matplotlib.use("Agg")
@@ -33,7 +39,6 @@ Drone_Lokation = (57.026180, 9.747177)  # Koordinater: (breddegrad, længdegrad)
 gNB_Lokation = (0, 0)  # Koordinater: (breddegrad, længdegrad)
 
 # Data fra JSON log og definere hvor målingerne ligger
-script_dir = os.path.dirname(os.path.abspath(__file__))
 root_dir = os.path.join(script_dir, "DATA")
 rows = []
 # Til at finde alle relevante målefiler i undermapperne
@@ -54,17 +59,6 @@ testlist_csv_path = os.path.join(root_dir, "testlist.csv")
 #for fp in file_paths:
 #    print(f"  - {fp}")
 
-# Teoretisk RASP Hata 
-def Teoretisk_RASP_Hata(data, Carrier_Frequency, RE_Power):
-    Afstand = data #km
-    # Undgå fejl ved distance 0: brug lille epsilon i stedet
-    if Afstand <= 0:
-        Afstand = 0.001
-    pathloss =69.55 + 26.16 * np.log10(Carrier_Frequency) - 13.82 * np.log10(12) - 0.1 + ((44.9 - 6.55 * np.log10(12)) * np.log10(Afstand))  # dB
-    RSRP = RE_Power - pathloss  # dBm
-    return pathloss, RSRP
-
-
 # Teoretisk RASP FSPL (Free Space Path Loss)
 def Teoretisk_RASP_FSPL(data, Carrier_Frequency, RE_Power):
     Afstand = data  # km
@@ -73,6 +67,38 @@ def Teoretisk_RASP_FSPL(data, Carrier_Frequency, RE_Power):
         Afstand = 0.001
     pathloss = 20 * np.log10(Afstand) + 20 * np.log10(Carrier_Frequency) + 32.44  # dB
     RSRP = RE_Power - pathloss  # dBm
+    return pathloss, RSRP
+
+
+def Teoretisk_RASP_3GPP(data, Carrier_Frequency, RE_Power, h_gnb=1.5, h_ue=120.0, h_bld=5.0):
+    afstand_km = data
+    if afstand_km <= 0:
+        afstand_km = 0.001
+
+    d2d_m = afstand_km * 1000
+    d3d_m = np.sqrt(d2d_m ** 2 + (h_gnb - h_ue) ** 2)
+    d3d_m = max(d3d_m, 1.0)
+    fc_ghz = Carrier_Frequency / 1000
+    fc_hz = Carrier_Frequency * 1000000
+
+    d_bp = max(4 * h_gnb * h_ue * fc_hz / 3e8, 1.0)
+    c1 = min(0.03 * h_bld ** 1.72, 10.0)
+    c2 = min(0.044 * h_bld ** 1.72, 14.77)
+
+    def pl1(d):
+        return (
+            20 * np.log10(40 * np.pi * d * fc_ghz / 3)
+            + c1 * np.log10(d)
+            - c2
+            + 0.002 * np.log10(h_bld) * d
+        )
+
+    if d3d_m <= d_bp:
+        pathloss = pl1(d3d_m)
+    else:
+        pathloss = pl1(d_bp) + 40 * np.log10(d3d_m / d_bp)
+
+    RSRP = RE_Power - pathloss
     return pathloss, RSRP
 
 def Afvigelse_Af_Målinger_På_Teori_RSRP(målinger,RSRP):
@@ -424,19 +450,19 @@ def main():
         except ValueError:
             print("Ugyldigt input: brug tal (fx 1.2 for afstand i km)")
             return
-         
+
         result_fspl = Teoretisk_RASP_FSPL(afstand_input, Carrier_Frequency, RE_Power)
-        result_Hata = Teoretisk_RASP_Hata(afstand_input, Carrier_Frequency, RE_Power)
+        result_3gpp = Teoretisk_RASP_3GPP(afstand_input, Carrier_Frequency, RE_Power)
         print("--------------------------------------------------")
         print(f"Teoretisk RASP FSPL for {afstand_input} km:")
         print(f"Pathloss: {result_fspl[0]:.2f} dB")
         print(f"RSRP: {result_fspl[1]:.2f} dBm")
-        print(f"Teoretisk SNR: {Teoretisk_SNR(result_fspl[1], Thermal_Noise, BW, NoiseFigure):.2f} dB")
+        print(f"Teoretisk SNR: {Teoretisk_SNR(result_fspl[1], Thermal_Noise, NoiseFigure, Sub_carrier_spacing):.2f} dB")
         print("--------------------------------------------------")
-        print(f"Teoretisk RASP Hata for {afstand_input} km:")
-        print(f"Pathloss: {result_Hata[0]:.2f} dB")
-        print(f"RSRP: {result_Hata[1]:.2f} dBm")
-        print(f"Teoretisk SNR: {Teoretisk_SNR(result_Hata[1], Thermal_Noise, BW, NoiseFigure):.2f} dB")
+        print(f"Teoretisk RASP 3GPP RMa LOS for {afstand_input} km:")
+        print(f"Pathloss: {result_3gpp[0]:.2f} dB")
+        print(f"RSRP: {result_3gpp[1]:.2f} dBm")
+        print(f"Teoretisk SNR: {Teoretisk_SNR(result_3gpp[1], Thermal_Noise, NoiseFigure, Sub_carrier_spacing):.2f} dB")
         print("--------------------------------------------------")
     elif menuvalg == "M":
         try:
@@ -470,9 +496,14 @@ def main():
                 afstand_fil = Afstand
 
             result_fspl = Teoretisk_RASP_FSPL(afstand_fil, Carrier_Frequency, RE_Power)
-            result_Hata = Teoretisk_RASP_Hata(afstand_fil, Carrier_Frequency, RE_Power)
+            result_3gpp = Teoretisk_RASP_3GPP(
+                afstand_fil,
+                Carrier_Frequency,
+                RE_Power,
+                h_ue=data.get("height_m") if data.get("height_m") is not None else 120.0
+            )
             snr_fspl = Teoretisk_SNR(result_fspl[1], Thermal_Noise, NoiseFigure, Sub_carrier_spacing)
-            snr_hata = Teoretisk_SNR(result_Hata[1], Thermal_Noise, NoiseFigure, Sub_carrier_spacing)
+            snr_3gpp = Teoretisk_SNR(result_3gpp[1], Thermal_Noise, NoiseFigure, Sub_carrier_spacing)
 
             målt_rsrp = data['rsrp']
             målt_snr = data['snr']
@@ -491,11 +522,11 @@ def main():
             print(f"  Afvigelse RSRP        : {Afvigelse_Af_Målinger_På_Teori_RSRP(målt_rsrp, result_fspl[1]):.2f} %")
             print(f"  Afvigelse SNR         : {snr_fspl - målt_snr:.2f} dB")
 
-            print("Hata")
-            print(f"  Teoretisk RSRP        : {result_Hata[1]:.2f} dBm")
-            print(f"  Teoretisk SNR         : {snr_hata:.2f} dB")
-            print(f"  Afvigelse RSRP        : {Afvigelse_Af_Målinger_På_Teori_RSRP(målt_rsrp, result_Hata[1]):.2f} %")
-            print(f"  Afvigelse SNR         : {snr_hata - målt_snr:.2f} dB")
+            print("3GPP RMa LOS")
+            print(f"  Teoretisk RSRP        : {result_3gpp[1]:.2f} dBm")
+            print(f"  Teoretisk SNR         : {snr_3gpp:.2f} dB")
+            print(f"  Afvigelse RSRP        : {Afvigelse_Af_Målinger_På_Teori_RSRP(målt_rsrp, result_3gpp[1]):.2f} %")
+            print(f"  Afvigelse SNR         : {snr_3gpp - målt_snr:.2f} dB")
 
         print("=" * 62)
 

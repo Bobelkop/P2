@@ -1,50 +1,37 @@
 
 === Forklaring ===
-Format: ✅ Throughput (Latency / Jitter)
+Format: ✅ Throughput (Latency / Packetloss)
 
-Throughput:
-  K = Kbps (kilobit per sekund)
-  M = Mbps (megabit per sekund)
-
-Latency:
-  Gennemsnitlig forsinkelse i ms (lavere er bedre)
-
-Jitter:
-  Variation i latency i ms (lavere er bedre)
-
-Symboler:
-  ✅ = Acceptabel performance
-  ❌ = Problem (typisk høj jitter eller latency)
-
+Latency er i millisekunder (ms), packetloss er i procent
 
 === Downlink (15m) ===
-Afstand   | 15.6 Kbps  | 65.5 Kbps  |  250 Kbps  |   1 Mbps   |   4 Mbps   |
+Afstand   |  15.6kbps  |  65.5kbps  |  250kbps   |   1mbps    |   4mbps    |
 ----------------------------------------------------------------------------
-39.0      |✅ 6 Kbps (4 ms / 3 ms)|✅ 43 Kbps (5 ms / 7 ms)|✅ 231 Kbps (5 ms / 5 ms)|❌ 520 Kbps (17 ms / 20 ms)|✅ 3.5 Mbps (13 ms / 16 ms)|
-1206.3    |✅ 6 Kbps (4 ms / 5 ms)|✅ 43 Kbps (4 ms / 5 ms)|✅ 231 Kbps (6 ms / 9 ms)|✅ 520 Kbps (13 ms / 17 ms)|✅ 3.5 Mbps (14 ms / 17 ms)|
-2258.2    |✅ 6 Kbps (4 ms / 4 ms)|✅ 43 Kbps (5 ms / 6 ms)|✅ 231 Kbps (8 ms / 14 ms)|✅ 520 Kbps (12 ms / 16 ms)|❌ 3.5 Mbps (23 ms / 21 ms)|
-2841.1    |✅ 6 Kbps (6 ms / 11 ms)|✅ 43 Kbps (4 ms / 1 ms)|✅ 231 Kbps (5 ms / 5 ms)|✅ 520 Kbps (16 ms / 20 ms)|✅ 3.5 Mbps (13 ms / 17 ms)|
+36.0      |✅ 6K (4ms/0%)|✅ 43K (5ms/0%)|✅ 231K (5ms/0%)|✅ 520K (17ms/0%)|✅ 3.5M (13ms/0%)|
+1206.2    |✅ 6K (4ms/0%)|✅ 43K (4ms/0%)|✅ 231K (6ms/0%)|✅ 520K (13ms/0%)|✅ 3.5M (14ms/0%)|
+2258.2    |✅ 6K (4ms/0%)|✅ 43K (5ms/0%)|✅ 231K (8ms/0%)|✅ 520K (12ms/0%)|✅ 3.5M (23ms/0%)|
+2841.1    |✅ 6K (6ms/0%)|✅ 43K (4ms/0%)|✅ 231K (5ms/0%)|✅ 520K (16ms/0%)|✅ 3.5M (13ms/0%)|
 
 === Downlink (120m) ===
-Afstand   | 15.6 Kbps  | 65.5 Kbps  |  250 Kbps  |   1 Mbps   |   4 Mbps   |
+Afstand   |  15.6kbps  |  65.5kbps  |  250kbps   |   1mbps    |   4mbps    |
 ----------------------------------------------------------------------------
-125.3     |✅ 6 Kbps (6 ms / 8 ms)|✅ 43 Kbps (6 ms / 7 ms)|✅ 230 Kbps (7 ms / 10 ms)|✅ 519 Kbps (16 ms / 18 ms)|✅ 3.5 Mbps (20 ms / 20 ms)|
-1212.2    |✅ 6 Kbps (4 ms / 3 ms)|✅ 43 Kbps (5 ms / 5 ms)|✅ 231 Kbps (6 ms / 11 ms)|✅ 520 Kbps (15 ms / 19 ms)|✅ 3.5 Mbps (15 ms / 18 ms)|
-2261.7    |✅ 6 Kbps (7 ms / 16 ms)|✅ 43 Kbps (5 ms / 7 ms)|✅ 231 Kbps (9 ms / 14 ms)|❌ 520 Kbps (21 ms / 21 ms)|✅ 3.5 Mbps (18 ms / 19 ms)|
-2843.6    |✅ 6 Kbps (5 ms / 6 ms)|✅ 43 Kbps (5 ms / 6 ms)|✅ 231 Kbps (11 ms / 19 ms)|❌ 520 Kbps (18 ms / 21 ms)|❌ 3.5 Mbps (24 ms / 21 ms)|
+36.0      |✅ 6K (6ms/0%)|✅ 43K (6ms/0%)|✅ 230K (7ms/0%)|✅ 519K (16ms/0%)|✅ 3.5M (20ms/0%)|
+1206.2    |✅ 6K (4ms/0%)|✅ 43K (5ms/0%)|✅ 231K (6ms/0%)|✅ 520K (15ms/0%)|✅ 3.5M (15ms/0%)|
+2258.5    |✅ 6K (7ms/0%)|✅ 43K (5ms/0%)|✅ 231K (9ms/0%)|✅ 520K (21ms/0%)|✅ 3.5M (18ms/0%)|
+2841.1    |✅ 6K (5ms/0%)|✅ 43K (5ms/0%)|✅ 231K (11ms/0%)|✅ 520K (18ms/0%)|✅ 3.5M (24ms/0%)|
 
 === Uplink (15m) ===
 Afstand   | 15.6 Kbps  | 65.5 Kbps  |  250 Kbps  |   1 Mbps   |   4 Mbps   |
 ----------------------------------------------------------------------------
-39.0      |✅ 6 Kbps (24 ms / 12 ms)|✅ 43 Kbps (28 ms / 13 ms)|✅ 231 Kbps (25 ms / 11 ms)|✅ 520 Kbps (11 ms / 5 ms)|✅ 3.5 Mbps (10 ms / 4 ms)|
-1206.3    |✅ 6 Kbps (27 ms / 18 ms)|✅ 43 Kbps (23 ms / 13 ms)|✅ 231 Kbps (11 ms / 6 ms)|✅ 519 Kbps (10 ms / 4 ms)|✅ 3.5 Mbps (11 ms / 1 ms)|
-2258.2    |✅ 6 Kbps (23 ms / 13 ms)|✅ 43 Kbps (28 ms / 10 ms)|✅ 231 Kbps (25 ms / 9 ms)|✅ 519 Kbps (12 ms / 19 ms)|❌ 3.5 Mbps (31 ms / 88 ms)|
-2841.1    |✅ 6 Kbps (22 ms / 11 ms)|✅ 43 Kbps (25 ms / 12 ms)|✅ 231 Kbps (21 ms / 12 ms)|✅ 519 Kbps (19 ms / 10 ms)|✅ 3.5 Mbps (10 ms / 3 ms)|
+36.0      |✅ 6K (24ms/0%)|✅ 43K (28ms/0%)|✅ 231K (25ms/0%)|✅ 520K (11ms/0%)|✅ 3.5M (10ms/0%)|
+1206.2    |✅ 6K (27ms/0%)|✅ 43K (23ms/0%)|✅ 231K (11ms/0%)|✅ 519K (10ms/0%)|✅ 3.5M (11ms/0%)|
+2258.2    |✅ 6K (23ms/0%)|✅ 43K (28ms/0%)|✅ 231K (25ms/0%)|✅ 519K (12ms/0%)|✅ 3.5M (31ms/0%)|
+2841.1    |✅ 6K (22ms/0%)|✅ 43K (25ms/0%)|✅ 231K (21ms/0%)|✅ 519K (19ms/0%)|✅ 3.5M (10ms/0%)|
 
 === Uplink (120m) ===
 Afstand   | 15.6 Kbps  | 65.5 Kbps  |  250 Kbps  |   1 Mbps   |   4 Mbps   |
 ----------------------------------------------------------------------------
-125.3     |❌ 6 Kbps (31 ms / 42 ms)|✅ 43 Kbps (25 ms / 13 ms)|✅ 231 Kbps (14 ms / 10 ms)|✅ 519 Kbps (9 ms / 4 ms)|✅ 3.5 Mbps (10 ms / 1 ms)|
-1212.2    |✅ 6 Kbps (31 ms / 12 ms)|✅ 43 Kbps (27 ms / 11 ms)|✅ 231 Kbps (23 ms / 11 ms)|✅ 520 Kbps (13 ms / 8 ms)|❌ 3.5 Mbps (22 ms / 64 ms)|
-2261.7    |✅ 6 Kbps (25 ms / 12 ms)|✅ 43 Kbps (28 ms / 13 ms)|✅ 231 Kbps (25 ms / 11 ms)|✅ 519 Kbps (11 ms / 4 ms)|❌ 3.5 Mbps (140 ms / 284 ms)|
-2843.6    |✅ 6 Kbps (28 ms / 14 ms)|✅ 43 Kbps (23 ms / 12 ms)|✅ 231 Kbps (20 ms / 15 ms)|✅ 520 Kbps (18 ms / 10 ms)|✅ 3.5 Mbps (13 ms / 5 ms)|
+36.0      |✅ 6K (31ms/0%)|✅ 43K (25ms/0%)|✅ 231K (14ms/0%)|✅ 519K (9ms/0%)|✅ 3.5M (10ms/0%)|
+1206.2    |✅ 6K (31ms/0%)|✅ 43K (27ms/0%)|✅ 231K (23ms/0%)|✅ 520K (13ms/0%)|✅ 3.5M (22ms/0%)|
+2258.5    |✅ 6K (25ms/0%)|✅ 43K (28ms/0%)|✅ 231K (25ms/0%)|✅ 519K (11ms/0%)|❌ 3.5M (140ms/0%)|
+2841.1    |✅ 6K (28ms/0%)|✅ 43K (23ms/0%)|✅ 231K (20ms/0%)|✅ 520K (18ms/0%)|✅ 3.5M (13ms/0%)|

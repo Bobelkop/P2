@@ -7,7 +7,8 @@ import numpy as np
 from geopy.distance import geodesic
 
 # === PATHS ===
-root_dir = os.path.join(os.getcwd(), "DATA")
+script_dir = os.path.dirname(os.path.abspath(__file__))
+root_dir = os.path.join(script_dir, "DATA")
 uplink_dir = os.path.join(root_dir, "core-uplink")
 downlink_dir = os.path.join(root_dir, "raspberrypi-downlink")
 
@@ -67,6 +68,7 @@ def analyse_test_file(file_path):
 
     delays = []
     timestamps = []
+    seqs = []
     total_bytes = 0
 
     for line in lines[1:]:
@@ -74,10 +76,12 @@ def analyse_test_file(file_path):
         if len(parts) >= 4:
             try:
                 ts = float(parts[0])
+                seq = int(parts[1])
                 owd = float(parts[2])
                 length = int(parts[3])
 
                 timestamps.append(ts)
+                seqs.append(seq)
                 delays.append(owd)
                 total_bytes += length
             except:
@@ -90,18 +94,18 @@ def analyse_test_file(file_path):
     duration = (max(timestamps) - min(timestamps)) / 1_000_000
     throughput = (total_bytes * 8) / duration / 1000  # Kbps
 
-    # ✅ latency og jitter
+    # ✅ latency og packetloss
     avg_delay = np.mean(delays) / 1000  # µs → ms
-    jitter = np.std(delays) / 1000
+    packet_loss = calculate_packet_loss(seqs)
 
     # ✅ status (meget simpelt)
     status = "OK"
     reason = ""
 
-    if jitter >= 20:
+    if packet_loss > 5:
         status = "FAIL"
-        reason = "JIT"
-    elif avg_delay >= 40:
+        reason = "PL"
+    elif avg_delay > 50:
         status = "FAIL"
         reason = "LAT"
 
@@ -111,7 +115,7 @@ def analyse_test_file(file_path):
         "status": status,
         "tp": throughput,
         "lat": avg_delay,
-        "jit": jitter,
+        "packet_loss": packet_loss,
         "reason": reason
     }
 
@@ -205,7 +209,7 @@ def format_cell(data):
     status = data["status"]
     tp = data["tp"]     # Kbps
     lat = data["lat"]
-    jit = data["jit"]
+    packet_loss = data["packet_loss"]
 
     # ✅ throughput format
     if tp >= 1000:
@@ -217,7 +221,7 @@ def format_cell(data):
     symbol = "✅" if status == "OK" else "❌"
 
     # ✅ ALTID vis data
-    return f"{symbol} {speed} ({lat:.0f} ms / {jit:.0f} ms)"
+    return f"{symbol} {speed} ({lat:.0f}ms/{packet_loss:.0f}%)"
 # =========================
 # PRINT TABLE
 # =========================
@@ -248,7 +252,7 @@ def print_table(title, table):
 
 def print_legend():
     print("\n=== Forklaring ===")
-    print("Format: ✅ Throughput (Latency / Jitter)")
+    print("Format: ✅ Throughput (Latency / Packetloss)")
     print("")
     print("Throughput:")
     print("  K = Kbps (kilobit per sekund)")
@@ -257,58 +261,87 @@ def print_legend():
     print("Latency:")
     print("  Gennemsnitlig forsinkelse i ms (lavere er bedre)")
     print("")
-    print("Jitter:")
-    print("  Variation i latency i ms (lavere er bedre)")
+    print("Packetloss:")
+    print("  Mistede pakker i procent (lavere er bedre)")
     print("")
     print("Symboler:")
     print("  ✅ = Acceptabel performance")
-    print("  ❌ = Problem (typisk høj jitter eller latency)\n")
+    print("  ❌ = Problem (typisk packetloss eller latency)\n")
 
 
-# =========================
-# RUN
-# =========================
+def lav_tabeller():
+    afstand_map = hent_afstande()
 
-afstand_map = hent_afstande()
+    uplink = process_folder(uplink_dir)
+    downlink = process_folder(downlink_dir)
 
-uplink = process_folder(uplink_dir)
-downlink = process_folder(downlink_dir)
+    u15, u120 = split_by_height(uplink, afstand_map)
+    d15, d120 = split_by_height(downlink, afstand_map)
 
-u15, u120 = split_by_height(uplink, afstand_map)
-d15, d120 = split_by_height(downlink, afstand_map)
-print_legend()
-print_table("Downlink (15m)", d15)
-print_table("Downlink (120m)", d120)
-print_table("Uplink (15m)", u15)
-print_table("Uplink (120m)", u120)
-
+    return {
+        "downlink_15": d15,
+        "downlink_120": d120,
+        "uplink_15": u15,
+        "uplink_120": u120,
+    }
 
 
-with open("netvaerk_analyse.txt", "w", encoding="utf-8") as f:
-    #f.write("=== Forklaring ===\n")
-    #f.write("Format: ✅ Throughput (Latency / Jitter)\n\n")
-    #f.write("Latency og jitter er i millisekunder (ms)\n\n")
-    
+def tabel_rows(table):
+    rows = []
+    for dist in sorted(table.keys()):
+        row = [f"{dist:.1f}"]
+        for rate in rates:
+            row.append(format_cell(table[dist].get(rate)))
+        rows.append(row)
+    return rows
 
 
-    # skriv din tabel til fil
-    def capture_print(line):
-        f.write(line + "\n")
+def tabel_til_text(title, table):
+    col_width = 12
+    lines = [f"\n=== {title} ==="]
 
-    # midlertidigt redirect print
-    import builtins
-    original_print = print
+    header = "Afstand".ljust(10) + "|"
+    for rate in rates:
+        header += rate.center(col_width) + "|"
 
-    def file_print(*args, **kwargs):
-        line = " ".join(str(a) for a in args)
-        original_print(*args, **kwargs)
-        f.write(line + "\n")
+    lines.append(header)
+    lines.append("-" * len(header))
 
-    print = file_print
+    for dist in sorted(table.keys()):
+        row = str(dist).ljust(10) + "|"
+        for rate in rates:
+            row += format_cell(table[dist].get(rate)).center(col_width) + "|"
+        lines.append(row)
+
+    return "\n".join(lines)
+
+
+def lav_rapport(tables):
+    parts = [
+        "=== Forklaring ===",
+        "Format: ✅ Throughput (Latency / Packetloss)",
+        "",
+        "Latency er i millisekunder (ms), packetloss er i procent",
+        tabel_til_text("Downlink (15m)", tables["downlink_15"]),
+        tabel_til_text("Downlink (120m)", tables["downlink_120"]),
+        tabel_til_text("Uplink (15m)", tables["uplink_15"]),
+        tabel_til_text("Uplink (120m)", tables["uplink_120"]),
+    ]
+    return "\n".join(parts)
+
+
+def main():
+    tables = lav_tabeller()
     print_legend()
-    print_table("Downlink (15m)", d15)
-    print_table("Downlink (120m)", d120)
-    print_table("Uplink (15m)", u15)
-    print_table("Uplink (120m)", u120)
+    print_table("Downlink (15m)", tables["downlink_15"])
+    print_table("Downlink (120m)", tables["downlink_120"])
+    print_table("Uplink (15m)", tables["uplink_15"])
+    print_table("Uplink (120m)", tables["uplink_120"])
 
-    print = original_print
+    output_path = os.path.join(script_dir, "netvaerk_analyse.txt")
+    with open(output_path, "w", encoding="utf-8") as f:
+        f.write(lav_rapport(tables))
+
+
+if __name__ == "__main__":
+    main()
