@@ -1,3 +1,4 @@
+import math
 import os
 import glob
 import re
@@ -97,12 +98,14 @@ def analyse_test_file(file_path):
     status = "OK"
     reason = ""
 
-    if jitter > 20:
+    if jitter >= 20:
         status = "FAIL"
         reason = "JIT"
-    elif avg_delay > 50:
+    elif avg_delay >= 40:
         status = "FAIL"
         reason = "LAT"
+
+    print(f"Debug: File: {file_path}, Latency: {avg_delay:.4f} ms, Jitter: {jitter:.4f} ms, Status: {status}, Reason: {reason}")
 
     return {
         "status": status,
@@ -134,7 +137,10 @@ def hent_afstande():
 
                 height = float(row["height"])
 
-                dist = round(geodesic((lat1, lon1), (lat2, lon2)).meters, 1)
+                dist_2d = geodesic((lat1, lon1), (lat2, lon2)).meters
+                dist_3d = math.sqrt(dist_2d**2 + height**2)
+                dist = round(dist_3d, 1)
+
 
                 afstand_map[testnr] = (dist, height)
 
@@ -203,26 +209,29 @@ def format_cell(data):
 
     # ✅ throughput format
     if tp >= 1000:
-        speed = f"{tp/1000:.1f}M"
+        speed = f"{tp/1000:.1f} Mbps"
     else:
-        speed = f"{tp:.0f}K"
+        speed = f"{tp:.0f} Kbps"
 
     # ✅ vælg symbol
     symbol = "✅" if status == "OK" else "❌"
 
     # ✅ ALTID vis data
-    return f"{symbol} {speed} ({lat:.0f}/{jit:.0f})"
+    return f"{symbol} {speed} ({lat:.0f} ms / {jit:.0f} ms)"
 # =========================
 # PRINT TABLE
 # =========================
 def print_table(title, table):
+   
     print(f"\n=== {title} ===")
 
     col_width = 12
 
     header = "Afstand".ljust(10) + "|"
     for r in rates:
-        header += r.center(col_width) + "|"
+        display_rate = r.replace("kbps", " Kbps").replace("mbps", " Mbps")
+        header += display_rate.center(col_width) + "|"
+
 
     print(header)
     print("-" * len(header))
@@ -276,9 +285,11 @@ print_table("Uplink (120m)", u120)
 
 
 with open("netvaerk_analyse.txt", "w", encoding="utf-8") as f:
-    f.write("=== Forklaring ===\n")
-    f.write("Format: ✅ Throughput (Latency / Jitter)\n\n")
-    f.write("Latency og jitter er i millisekunder (ms)\n\n")
+    #f.write("=== Forklaring ===\n")
+    #f.write("Format: ✅ Throughput (Latency / Jitter)\n\n")
+    #f.write("Latency og jitter er i millisekunder (ms)\n\n")
+    
+
 
     # skriv din tabel til fil
     def capture_print(line):
@@ -294,7 +305,7 @@ with open("netvaerk_analyse.txt", "w", encoding="utf-8") as f:
         f.write(line + "\n")
 
     print = file_print
-
+    print_legend()
     print_table("Downlink (15m)", d15)
     print_table("Downlink (120m)", d120)
     print_table("Uplink (15m)", u15)
