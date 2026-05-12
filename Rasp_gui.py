@@ -50,12 +50,46 @@ LB_FAELLES_FELTER = [
     ("CIH h_B0", "-LB-CIH-HB0-", 35.0, "m"),
 ]
 
+GRAF_KNAPPER = {
+    "-VIS-GRAF-RSRP-": "rsrp",
+    "-VIS-GRAF-SNR-": "snr",
+    "-VIS-GRAF-PATHLOSS-": "pathloss",
+    "-VIS-GRAF-RSRP-15-": "rsrp_15m",
+    "-VIS-GRAF-SNR-15-": "snr_15m",
+    "-VIS-GRAF-PATHLOSS-15-": "pathloss_15m",
+    "-VIS-GRAF-RSRP-120-": "rsrp_120m",
+    "-VIS-GRAF-SNR-120-": "snr_120m",
+    "-VIS-GRAF-PATHLOSS-120-": "pathloss_120m",
+}
+
+DATA_HEADINGS = [
+    "Test",
+    "Koordinater",
+    "Afstand (km)",
+    "Målt RSRP",
+    "Målt SNR",
+    "Teoretisk RSRP",
+    "Teoretisk SNR",
+    "Afvigelse SNR",
+    "Teoretisk afvigelse RSRP (dB)",
+]
+
+DATA_COL_WIDTHS = [13, 16, 10, 10, 9, 11, 11, 12, 20]
+
 
 def _to_float(value, default):
-    value = (value or "").strip()
+    value = str(value if value is not None else "").strip().replace(",", ".")
     if value == "":
         return default
-    return float(value)
+    try:
+        return float(value)
+    except ValueError:
+        raise ValueError(f"Ugyldigt tal: {value}") from None
+
+
+def _skal_vaere_positiv(value, label):
+    if not np.isfinite(value) or value <= 0:
+        raise ValueError(f"{label} skal være større end 0")
 
 
 def _linkbudget_from_gui(values):
@@ -66,6 +100,14 @@ def _linkbudget_from_gui(values):
     scs_khz = _to_float(values["-SCS-"], float(rasp.Sub_carrier_spacing))
     thermal_noise = _to_float(values["-TN-"], float(rasp.Thermal_Noise))
     noise_figure = _to_float(values["-NF-"], float(rasp.NoiseFigure))
+
+    _skal_vaere_positiv(carrier_frequency, "Carrier MHz")
+    _skal_vaere_positiv(bw_mhz, "BW MHz")
+    _skal_vaere_positiv(scs_khz, "SCS kHz")
+    if not np.isfinite(gnb_tx_power) or not np.isfinite(antenna_gain):
+        raise ValueError("Tx power og gain skal være gyldige tal")
+    if not np.isfinite(thermal_noise) or not np.isfinite(noise_figure):
+        raise ValueError("Thermal noise og noise figure skal være gyldige tal")
 
     tx_eirp = gnb_tx_power + antenna_gain
     re_power = 10 * np.log10(10 ** (tx_eirp / 10) * (scs_khz) / (bw_mhz * 0.9 * 1000))
@@ -89,6 +131,9 @@ def _rapport_3gpp(values, afstand, height_m=None):
         "h_ue": float(h_ue),
         "h_bld": _to_float(values.get("-LB-H-BLD-"), 5.0),
     }
+    _skal_vaere_positiv(p["h_gnb"], "gNB-højde")
+    _skal_vaere_positiv(p["h_ue"], "UE-højde")
+    _skal_vaere_positiv(p["h_bld"], "Bygningshøjde")
     pathloss = float(_link_3gpp(np.array([afstand]), p)[0])
     rsrp = lb["re_power"] - pathloss
     return pathloss, rsrp
@@ -96,6 +141,7 @@ def _rapport_3gpp(values, afstand, height_m=None):
 
 def _run_t_mode(values):
     afstand = _to_float(values["-AFSTAND-T-"], 1.0)
+    _skal_vaere_positiv(afstand, "Afstand")
     lb = _linkbudget_from_gui(values)
 
     fspl = rasp.Teoretisk_RASP_FSPL(afstand, lb["carrier_frequency"], lb["re_power"])
@@ -120,16 +166,6 @@ def _run_t_mode(values):
         f"Teoretisk SNR: {snr_rma:.2f} dB",
     ]
     return "\n".join(lines)
-
-
-def _measurement_defaults_from_files():
-    resultater = rasp.alle_målinger_fra_json()
-    if not resultater:
-        return "", ""
-
-    rsrp_ref = sum(item["rsrp"] for item in resultater.values()) / len(resultater)
-    snr_ref = sum(item["snr"] for item in resultater.values()) / len(resultater)
-    return f"{rsrp_ref:.2f}", f"{snr_ref:.2f}"
 
 
 def _run_m_mode(values):
@@ -237,21 +273,33 @@ def _build_data_tables(values):
         else:
             test_label = filnavn
 
-        if lat_lon is not None:
-            afstand = data.get("afstand")
-            if afstand is None:
-                afstand = rasp.Afstandsformel(rasp.Drone_Lokation, lat_lon)
-            coord_txt = f"{lat_lon[0]:.6f},{lat_lon[1]:.6f}"
-        else:
-            afstand = 0.0
-            coord_txt = "-"
+        målt_rsrp = data["rsrp"]
+        målt_snr = data["snr"]
+
+        if lat_lon is None:
+            row = [
+                test_label,
+                "-",
+                "-",
+                f"{målt_rsrp:.2f}",
+                f"{målt_snr:.2f}",
+                "-",
+                "-",
+                "-",
+                "-",
+            ]
+            rows_by_height[group_key]["fspl"].append(row)
+            rows_by_height[group_key]["rma"].append(row.copy())
+            continue
+
+        afstand = data.get("afstand")
+        if afstand is None:
+            afstand = rasp.Afstandsformel(rasp.Drone_Lokation, lat_lon)
+        coord_txt = f"{lat_lon[0]:.6f},{lat_lon[1]:.6f}"
         fspl = rasp.Teoretisk_RASP_FSPL(afstand, lb["carrier_frequency"], lb["re_power"])
         rma = _rapport_3gpp(values, afstand, data.get("height_m"))
         snr_fspl = rasp.Teoretisk_SNR(fspl[1], lb["thermal_noise"], lb["noise_figure"], lb["scs_khz"])
         snr_rma = rasp.Teoretisk_SNR(rma[1], lb["thermal_noise"], lb["noise_figure"], lb["scs_khz"])
-
-        målt_rsrp = data["rsrp"]
-        målt_snr = data["snr"]
 
         rows_by_height[group_key]["fspl"].append([
             test_label,
@@ -283,7 +331,6 @@ def _build_data_tables(values):
     return rows_by_height, status
 
 
-# Graf
 def _run_graph_mode(values):
     lb = _linkbudget_from_gui(values)
     graf_stier = rasp.Lav_Grafer(
@@ -543,6 +590,45 @@ def _build_netvaerk_tables():
     return rows, status
 
 
+def _data_table(key, expand_y=False):
+    return sg.Table(
+        values=[],
+        headings=DATA_HEADINGS,
+        key=key,
+        auto_size_columns=False,
+        col_widths=DATA_COL_WIDTHS,
+        justification="left",
+        num_rows=5,
+        expand_x=True,
+        expand_y=expand_y,
+        text_color=FARVE_TEKST,
+        background_color=FARVE_PANEL,
+        alternating_row_color=FARVE_FELT,
+        selected_row_colors=("white", FARVE_KNAP),
+        header_text_color=FARVE_TEKST,
+        header_background_color=FARVE_KANT,
+    )
+
+
+def _net_table(key, headings, col_widths):
+    return sg.Table(
+        values=[],
+        headings=headings,
+        key=key,
+        auto_size_columns=False,
+        col_widths=col_widths,
+        justification="left",
+        num_rows=5,
+        expand_x=True,
+        text_color=FARVE_TEKST,
+        background_color=FARVE_PANEL,
+        alternating_row_color=FARVE_FELT,
+        selected_row_colors=("white", FARVE_KNAP),
+        header_text_color=FARVE_TEKST,
+        header_background_color=FARVE_KANT,
+    )
+
+
 def main():
     sg.theme("LightBlue1")
     sg.set_options(
@@ -554,9 +640,6 @@ def main():
         button_color=("white", FARVE_KNAP),
         use_ttk_buttons=False,
     )
-    # Avoid heavy parsing on startup; compute defaults lazily when user requests update
-    default_m_rsrp, default_m_snr = "", ""
-
     tab_settings = [
         [sg.Text("Indstillinger", font=("Helvetica", 11, "bold"))],
         [
@@ -585,8 +668,8 @@ def main():
         [sg.Text("Drone lokation lat,lon"), sg.Input(f"{rasp.Drone_Lokation[0]},{rasp.Drone_Lokation[1]}", key="-DRONE-M-", size=(24, 1))],
         [sg.Text("gNB lokation lat,lon"), sg.Input("57.0180391,9.7602773", key="-GNB-M-", size=(24, 1))],
         [
-            sg.Text("Målt RSRP (dBm)"), sg.Input(default_m_rsrp, key="-M-RSRP-", size=(12, 1)),
-            sg.Text("Målt SNR (dB)"), sg.Input(default_m_snr, key="-M-SNR-", size=(12, 1)),
+            sg.Text("Målt RSRP (dBm)"), sg.Input("", key="-M-RSRP-", size=(12, 1)),
+            sg.Text("Målt SNR (dB)"), sg.Input("", key="-M-SNR-", size=(12, 1)),
         ],
         [sg.Text("Tomme felter for Målt RSRP/SNR bruger standardværdier fra fil-data")],
         [sg.Button("Beregn", key="-BEREGN-M-")],
@@ -603,128 +686,18 @@ def main():
                         "15 m",
                         [
                             [sg.Text("FSPL", font=("Helvetica", 10, "bold"))],
-                            [
-                                sg.Table(
-                                    values=[],
-                                    headings=[
-                                        "Test",
-                                        "Koordinater",
-                                        "Afstand (km)",
-                                        "Målt RSRP",
-                                        "Målt SNR",
-                                        "Teoretisk RSRP",
-                                        "Teoretisk SNR",
-                                        "Afvigelse SNR",
-                                        "Teoretisk afvigelse RSRP (dB)",
-                                    ],
-                                    key="-DATA-TABEL-FSPL-15-",
-                                    auto_size_columns=False,
-                                    col_widths=[13, 16, 10, 10, 9, 11, 11, 12, 20],
-                                    justification="left",
-                                    num_rows=5,
-                                    expand_x=True,
-                                    text_color=FARVE_TEKST,
-                                    background_color=FARVE_PANEL,
-                                    alternating_row_color=FARVE_FELT,
-                                    selected_row_colors=("white", FARVE_KNAP),
-                                    header_text_color=FARVE_TEKST,
-                                    header_background_color=FARVE_KANT,
-                                )
-                            ],
+                            [_data_table("-DATA-TABEL-FSPL-15-")],
                             [sg.Text("3GPP RMa LOS", font=("Helvetica", 10, "bold"))],
-                            [
-                                sg.Table(
-                                    values=[],
-                                    headings=[
-                                        "Test",
-                                        "Koordinater",
-                                        "Afstand (km)",
-                                        "Målt RSRP",
-                                        "Målt SNR",
-                                        "Teoretisk RSRP",
-                                        "Teoretisk SNR",
-                                        "Afvigelse SNR",
-                                        "Teoretisk afvigelse RSRP (dB)",
-                                    ],
-                                    key="-DATA-TABEL-RMA-15-",
-                                    auto_size_columns=False,
-                                    col_widths=[13, 16, 10, 10, 9, 11, 11, 12, 20],
-                                    justification="left",
-                                    num_rows=5,
-                                    expand_x=True,
-                                    expand_y=True,
-                                    text_color=FARVE_TEKST,
-                                    background_color=FARVE_PANEL,
-                                    alternating_row_color=FARVE_FELT,
-                                    selected_row_colors=("white", FARVE_KNAP),
-                                    header_text_color=FARVE_TEKST,
-                                    header_background_color=FARVE_KANT,
-                                )
-                            ],
+                            [_data_table("-DATA-TABEL-RMA-15-", expand_y=True)],
                         ],
                     ),
                     sg.Tab(
                         "120 m",
                         [
                             [sg.Text("FSPL", font=("Helvetica", 10, "bold"))],
-                            [
-                                sg.Table(
-                                    values=[],
-                                    headings=[
-                                        "Test",
-                                        "Koordinater",
-                                        "Afstand (km)",
-                                        "Målt RSRP",
-                                        "Målt SNR",
-                                        "Teoretisk RSRP",
-                                        "Teoretisk SNR",
-                                        "Afvigelse SNR",
-                                        "Teoretisk afvigelse RSRP (dB)",
-                                    ],
-                                    key="-DATA-TABEL-FSPL-120-",
-                                    auto_size_columns=False,
-                                    col_widths=[13, 16, 10, 10, 9, 11, 11, 12, 20],
-                                    justification="left",
-                                    num_rows=5,
-                                    expand_x=True,
-                                    text_color=FARVE_TEKST,
-                                    background_color=FARVE_PANEL,
-                                    alternating_row_color=FARVE_FELT,
-                                    selected_row_colors=("white", FARVE_KNAP),
-                                    header_text_color=FARVE_TEKST,
-                                    header_background_color=FARVE_KANT,
-                                )
-                            ],
+                            [_data_table("-DATA-TABEL-FSPL-120-")],
                             [sg.Text("3GPP RMa LOS", font=("Helvetica", 10, "bold"))],
-                            [
-                                sg.Table(
-                                    values=[],
-                                    headings=[
-                                        "Test",
-                                        "Koordinater",
-                                        "Afstand (km)",
-                                        "Målt RSRP",
-                                        "Målt SNR",
-                                        "Teoretisk RSRP",
-                                        "Teoretisk SNR",
-                                        "Afvigelse SNR",
-                                        "Teoretisk afvigelse RSRP (dB)",
-                                    ],
-                                    key="-DATA-TABEL-RMA-120-",
-                                    auto_size_columns=False,
-                                    col_widths=[13, 16, 10, 10, 9, 11, 11, 12, 20],
-                                    justification="left",
-                                    num_rows=5,
-                                    expand_x=True,
-                                    expand_y=True,
-                                    text_color=FARVE_TEKST,
-                                    background_color=FARVE_PANEL,
-                                    alternating_row_color=FARVE_FELT,
-                                    selected_row_colors=("white", FARVE_KNAP),
-                                    header_text_color=FARVE_TEKST,
-                                    header_background_color=FARVE_KANT,
-                                )
-                            ],
+                            [_data_table("-DATA-TABEL-RMA-120-", expand_y=True)],
                         ],
                     ),
                 ]],
@@ -809,18 +782,18 @@ def main():
                         "15 m",
                         [
                             [sg.Text("Downlink", font=("Helvetica", 10, "bold"))],
-                            [sg.Table(values=[], headings=net_headings, key="-NET-DL-15-", auto_size_columns=False, col_widths=net_col_widths, justification="left", num_rows=5, expand_x=True, text_color=FARVE_TEKST, background_color=FARVE_PANEL, alternating_row_color=FARVE_FELT, selected_row_colors=("white", FARVE_KNAP), header_text_color=FARVE_TEKST, header_background_color=FARVE_KANT)],
+                            [_net_table("-NET-DL-15-", net_headings, net_col_widths)],
                             [sg.Text("Uplink", font=("Helvetica", 10, "bold"))],
-                            [sg.Table(values=[], headings=net_headings, key="-NET-UL-15-", auto_size_columns=False, col_widths=net_col_widths, justification="left", num_rows=5, expand_x=True, text_color=FARVE_TEKST, background_color=FARVE_PANEL, alternating_row_color=FARVE_FELT, selected_row_colors=("white", FARVE_KNAP), header_text_color=FARVE_TEKST, header_background_color=FARVE_KANT)],
+                            [_net_table("-NET-UL-15-", net_headings, net_col_widths)],
                         ],
                     ),
                     sg.Tab(
                         "120 m",
                         [
                             [sg.Text("Downlink", font=("Helvetica", 10, "bold"))],
-                            [sg.Table(values=[], headings=net_headings, key="-NET-DL-120-", auto_size_columns=False, col_widths=net_col_widths, justification="left", num_rows=5, expand_x=True, text_color=FARVE_TEKST, background_color=FARVE_PANEL, alternating_row_color=FARVE_FELT, selected_row_colors=("white", FARVE_KNAP), header_text_color=FARVE_TEKST, header_background_color=FARVE_KANT)],
+                            [_net_table("-NET-DL-120-", net_headings, net_col_widths)],
                             [sg.Text("Uplink", font=("Helvetica", 10, "bold"))],
-                            [sg.Table(values=[], headings=net_headings, key="-NET-UL-120-", auto_size_columns=False, col_widths=net_col_widths, justification="left", num_rows=5, expand_x=True, text_color=FARVE_TEKST, background_color=FARVE_PANEL, alternating_row_color=FARVE_FELT, selected_row_colors=("white", FARVE_KNAP), header_text_color=FARVE_TEKST, header_background_color=FARVE_KANT)],
+                            [_net_table("-NET-UL-120-", net_headings, net_col_widths)],
                         ],
                     ),
                 ]],
@@ -866,10 +839,7 @@ def main():
 
     window = sg.Window("RSRP FreeSimpleGUI", layout, finalize=True, resizable=True, background_color=FARVE_BAGGRUND)
 
-    try:
-        window.maximize()
-    except Exception:
-        pass
+    window.maximize()
 
     graf_stier = {}
 
@@ -896,11 +866,7 @@ def main():
 
         if event == "-OPDATER-DATA-":
             try:
-                # Force a fresh parse of measurement files (clears cache first)
-                try:
-                    rasp.clear_measurement_cache()
-                except Exception:
-                    pass
+                rasp.clear_measurement_cache()
                 rows_by_height, status = _build_data_tables(values)
                 window["-DATA-TABEL-FSPL-15-"].update(values=rows_by_height["15m"]["fspl"])
                 window["-DATA-TABEL-RMA-15-"].update(values=rows_by_height["15m"]["rma"])
@@ -918,49 +884,13 @@ def main():
             except Exception as exc:
                 window["-OUT-GRAFER-"].update(f"Fejl i grafer: {exc}")
 
-        if event in (
-            "-VIS-GRAF-RSRP-",
-            "-VIS-GRAF-SNR-",
-            "-VIS-GRAF-PATHLOSS-",
-            "-VIS-GRAF-RSRP-15-",
-            "-VIS-GRAF-SNR-15-",
-            "-VIS-GRAF-PATHLOSS-15-",
-            "-VIS-GRAF-RSRP-120-",
-            "-VIS-GRAF-SNR-120-",
-            "-VIS-GRAF-PATHLOSS-120-",
-        ):
+        if event in GRAF_KNAPPER:
             try:
                 if not graf_stier:
                     graf_stier, status = _run_graph_mode(values)
                     window["-OUT-GRAFER-"].update(status)
 
-                if event == "-VIS-GRAF-RSRP-":
-                    window["-GRAF-IMAGE-"].update(filename=graf_stier["rsrp"])
-
-                if event == "-VIS-GRAF-SNR-":
-                    window["-GRAF-IMAGE-"].update(filename=graf_stier["snr"])
-
-                if event == "-VIS-GRAF-PATHLOSS-":
-                    window["-GRAF-IMAGE-"].update(filename=graf_stier["pathloss"])
-
-                if event == "-VIS-GRAF-RSRP-15-":
-                    window["-GRAF-IMAGE-"].update(filename=graf_stier["rsrp_15m"])
-
-                if event == "-VIS-GRAF-SNR-15-":
-                    window["-GRAF-IMAGE-"].update(filename=graf_stier["snr_15m"])
-
-                if event == "-VIS-GRAF-PATHLOSS-15-":
-                    window["-GRAF-IMAGE-"].update(filename=graf_stier["pathloss_15m"])
-
-                if event == "-VIS-GRAF-RSRP-120-":
-                    window["-GRAF-IMAGE-"].update(filename=graf_stier["rsrp_120m"])
-
-                if event == "-VIS-GRAF-SNR-120-":
-                    window["-GRAF-IMAGE-"].update(filename=graf_stier["snr_120m"])
-
-                if event == "-VIS-GRAF-PATHLOSS-120-":
-                    window["-GRAF-IMAGE-"].update(filename=graf_stier["pathloss_120m"])
-
+                window["-GRAF-IMAGE-"].update(filename=graf_stier[GRAF_KNAPPER[event]])
             except Exception as exc:
                 window["-OUT-GRAFER-"].update(f"Fejl i visning af graf: {exc}")
 
