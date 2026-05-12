@@ -137,4 +137,4 @@ plt.legend()
 plt.tight_layout()
 plt.show()
 
-print("✅ Analyse og plots færdige (linje + datapunkter)")
+print("Analyse og plots færdige (linje + datapunkter)")

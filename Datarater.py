@@ -53,7 +53,7 @@ def calculate_throughput(lines):
     if duration <= 0:
         return 0
 
-    # ✅ Kbps direkte
+    # Kbps direkte
     throughput_kbps = (total_bytes * 8) / duration / 1000
 
     return throughput_kbps
@@ -90,15 +90,15 @@ def analyse_test_file(file_path):
     if len(timestamps) < 2:
         return None
 
-    # ✅ throughput (Kbps)
+    # throughput (Kbps)
     duration = (max(timestamps) - min(timestamps)) / 1_000_000
     throughput = (total_bytes * 8) / duration / 1000  # Kbps
 
-    # ✅ latency og packetloss
+    # latency og packetloss
     avg_delay = np.mean(delays) / 1000  # µs → ms
     packet_loss = calculate_packet_loss(seqs)
 
-    # ✅ status (meget simpelt)
+    # status (meget simpelt)
     status = "OK"
     reason = ""
 
@@ -211,17 +211,14 @@ def format_cell(data):
     lat = data["lat"]
     packet_loss = data["packet_loss"]
 
-    # ✅ throughput format
+    # throughput format
     if tp >= 1000:
         speed = f"{tp/1000:.1f} Mbps"
     else:
         speed = f"{tp:.0f} Kbps"
 
-    # ✅ vælg symbol
-    symbol = "✅" if status == "OK" else "❌"
-
-    # ✅ ALTID vis data
-    return f"{symbol} {speed} ({lat:.0f}ms/{packet_loss:.0f}%)"
+    prefix = "" if status == "OK" else "FAIL "
+    return f"{prefix}{speed} ({lat:.0f}ms/{packet_loss:.2f}%)"
 # =========================
 # PRINT TABLE
 # =========================
@@ -252,7 +249,7 @@ def print_table(title, table):
 
 def print_legend():
     print("\n=== Forklaring ===")
-    print("Format: ✅ Throughput (Latency / Packetloss)")
+    print("Format: Throughput (Latency / Packetloss)")
     print("")
     print("Throughput:")
     print("  K = Kbps (kilobit per sekund)")
@@ -265,8 +262,7 @@ def print_legend():
     print("  Mistede pakker i procent (lavere er bedre)")
     print("")
     print("Symboler:")
-    print("  ✅ = Acceptabel performance")
-    print("  ❌ = Problem (typisk packetloss eller latency)\n")
+    print("  FAIL = Problem (typisk packetloss eller latency)\n")
 
 
 def lav_tabeller():
@@ -319,7 +315,7 @@ def tabel_til_text(title, table):
 def lav_rapport(tables):
     parts = [
         "=== Forklaring ===",
-        "Format: ✅ Throughput (Latency / Packetloss)",
+        "Format: Throughput (Latency / Packetloss)",
         "",
         "Latency er i millisekunder (ms), packetloss er i procent",
         tabel_til_text("Downlink (15m)", tables["downlink_15"]),

@@ -287,15 +287,8 @@ def alle_målinger_fra_json(drone_lokation=None, force_reload=False):
                 "height_m": height_m,
                 "afstand": Afstandsformel(test_drone_loc, lat_lon) if lat_lon else None
             }
-            #if lat_lon is None:
-               #print(f"✓ {filnavn}: RSRP={rsrp_mean:.2f} dBm, SNR={snr_mean:.2f} dB")
-            #else:
-             #   print(
-             #       f"✓ {filnavn}: RSRP={rsrp_mean:.2f} dBm, SNR={snr_mean:.2f} dB, "
-             #       f"Koordinater=({lat_lon[0]:.7f},{lat_lon[1]:.7f})"
-             #       )
         except Exception as e:
-            print(f"✗ Fejl ved læsning af {file_path}: {e}")
+            print(f"Fejl ved læsning af {file_path}: {e}")
     
     _MEASUREMENT_CACHE = resultater
     return resultater
@@ -310,8 +303,6 @@ def _height_group(height_value):
 
 
 def Lav_Grafer(carrier_frequency=None, re_power=None, thermal_noise=None, noise_figure=None, scs_khz=None, drone_lokation=None):
-    from scipy.stats import linregress
-    
     carrier_frequency = float(Carrier_Frequency if carrier_frequency is None else carrier_frequency)
     re_power = float(RE_Power if re_power is None else re_power)
     thermal_noise = float(Thermal_Noise if thermal_noise is None else thermal_noise)
@@ -382,12 +373,21 @@ def Lav_Grafer(carrier_frequency=None, re_power=None, thermal_noise=None, noise_
         # Beregn regression for alle målepunkter
         måle_x = np.array([item["afstand"] * 1000 for item in plot_punkter])  # meter (log scale)
         måle_y = np.array([item[y_nøgle] for item in plot_punkter])
-        
+
         # Brug log(afstand) til regression (lineær i log-scale)
         måle_x_log = np.log10(måle_x)
-        slope, intercept, r_value, p_value, std_err = linregress(måle_x_log, måle_y)
-        r_squared = r_value ** 2
-        
+        if len(måle_x_log) >= 2 and np.ptp(måle_x_log) > 0:
+            slope, intercept = np.polyfit(måle_x_log, måle_y, 1)
+            if np.ptp(måle_y) > 0:
+                r_value = np.corrcoef(måle_x_log, måle_y)[0, 1]
+                r_squared = float(r_value ** 2)
+            else:
+                r_squared = 0.0
+        else:
+            slope = 0.0
+            intercept = float(np.mean(måle_y))
+            r_squared = 0.0
+
         # Regress linje
         regression_y = slope * måle_x_log + intercept
 

@@ -59,7 +59,7 @@ last_min_idx = df["rsrp_smooth"].idxmin()
 df_fit = df.loc[:last_min_idx].copy()
 
 print(
-    f"✅ Fjernet {len(df) - len(df_fit)} sidste punkter "
+    f"Fjernet {len(df) - len(df_fit)} sidste punkter "
     f"(cut ved {df.loc[last_min_idx, 'distance_ground_m']:.0f} m)"
 )
 
@@ -121,4 +121,4 @@ plt.legend()
 plt.tight_layout()
 plt.show()
 
-print(f"✅ Path-loss eksponent n = {n:.2f}")
+print(f"Path-loss eksponent n = {n:.2f}")

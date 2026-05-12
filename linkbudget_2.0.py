@@ -438,7 +438,7 @@ class LinkBudgetGUI:
             f"  EIRP = {dl['eirp']:.1f} dBm"
         )
         if p["ul_sens_dbm"] < -110 or p["dl_sens_dbm"] < -110:
-            txt += "\n\n⚠ Sensitivity < -110 dBm: tjek at det er Prx-sensitivity,\n  ikke RSRP-threshold (Ligning 3.19)"
+            txt += "\n\nADVARSEL: Sensitivity < -110 dBm: tjek at det er Prx-sensitivity,\n  ikke RSRP-threshold (Ligning 3.19)"
         self.result_var.set(txt)
 
     # ── Plot ──────────────────────────────────────────────────────────────────

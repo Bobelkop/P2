@@ -177,7 +177,7 @@ for i in range(count):
 df = pd.DataFrame(rows)
 
 # ---------------------------------------------------------
-# ✅ AFGRÆNS UDADKØRSEL KORREKT
+# AFGRÆNS UDADKØRSEL KORREKT
 # Stop ved FØRSTE gang maksimal afstand nås
 # ---------------------------------------------------------
 start_idx = df["distance_ground_m"].idxmin()
@@ -191,7 +191,7 @@ idx_first_max = df[df["distance_ground_m"] >= max_dist * 0.999].index[0]
 df_outgoing = df.loc[:idx_first_max].reset_index(drop=True)
 
 print(
-    f"✅ Bruger {len(df_outgoing)} målinger "
+    f"Bruger {len(df_outgoing)} målinger "
     f"(~0 m → første maxafstand: {max_dist:.0f} m)"
 )
 
@@ -203,5 +203,5 @@ OUT_FILE = os.path.join(
 )
 df_outgoing.to_csv(OUT_FILE, index=False)
 
-print("✅ FÆRDIG")
+print("FÆRDIG")
 print(f"Output gemt: {OUT_FILE}")
