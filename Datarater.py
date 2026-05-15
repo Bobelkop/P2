@@ -109,7 +109,7 @@ def analyse_test_file(file_path):
         status = "FAIL"
         reason = "LAT"
 
-    print(f"Debug: File: {file_path}, Latency: {avg_delay:.4f} ms, Jitter: {jitter:.4f} ms, Status: {status}, Reason: {reason}")
+    #print(f"Debug: File: {file_path}, Latency: {avg_delay:.4f} ms, Jitter: {jitter:.4f} ms, Status: {status}, Reason: {reason}")
 
     return {
         "status": status,
