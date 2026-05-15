@@ -2,3 +2,13 @@ __pycache__/
 *.pyc
 .matplotlib/
 generated_graphs/linkbudget_margin.png
+# Ignore the entire Breakpoint directory and its contents
+Breakpoint/
+# Ignore virtual environment folder
+.venv/
+
+# Ignore VS Code settings folder
+.vscode/
+
+packetloss_grafer/
+
