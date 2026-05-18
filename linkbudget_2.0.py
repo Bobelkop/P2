@@ -7,19 +7,19 @@ Pathloss-modeller fra rapporten:
   CIH   : Ligning 3.11 — CI med højdekorrektion af n via b_tx og h_B0
   3GPP  : Ligning 3.6/3.7 — RMa LOS med breakpoint (fc i GHz, d i m)
 
-Uplink   = van (gNB) → drone (UE)
-Downlink = drone (UE) → van (gNB)
+Uplink   = drone (UE) → van (gNB)
+Downlink = van (gNB) → drone (UE)
 
 Default-værdier fra mail (Miguel) og SCU2070-datablade:
-  Tx power gNB  : 35 dBm   (uplink sender, fra mailen)
-  Tx power UE   : 23 dBm   (downlink sender, fra mailen)
+  Tx power UE   : 23 dBm   (uplink sender, fra mailen)
+  Tx power gNB  : 35 dBm   (downlink sender, fra mailen)
   gNB ant. gain : 11 dBi   (SCU2070: ANT1≈11.5 dBi @ 3700 MHz,
                               ANT2≈11.0 dBi @ 3700–3800 MHz; fra databladet)
-  UE  ant. gain : -5 dBi   (2JW1183-C952B omkring 3779 MHz; ikke optimeret til
+  UE  ant. gain : -5 dBi   (2JW1183-C952B @ 3780 MHz; ikke optimeret til
                               n78-båndet — fra mailen)
   Kabeltab gNB  : 2  dB    (lange kabler, fra mailen)
   Kabeltab UE   : 0.5 dB   (korte kabler, fra mailen)
-  Frekvens      : 3779 MHz  (brugt i rapporten)
+  Frekvens      : 3780 MHz  (n78-bånd, fra mailen)
   Sensitivity   : -102 dBm  (Teltonika 5G modem; termisk støjgulv
                               20 MHz + NF≈7 dB + SNR_min≈-6 dB ≈ -100 dBm.
                               NB: -120/-125 dBm er RSRP-threshold per
@@ -41,12 +41,6 @@ Two-ray ground-reflection antages først at dominere ved ~70 km
 
 import tkinter as tk
 from tkinter import ttk, messagebox
-import os
-
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-MPL_CONFIG_DIR = os.path.join(SCRIPT_DIR, ".matplotlib")
-os.makedirs(MPL_CONFIG_DIR, exist_ok=True)
-os.environ.setdefault("MPLCONFIGDIR", MPL_CONFIG_DIR)
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -71,27 +65,27 @@ class LinkBudgetGUI:
 
     # ── Felter: (label, nøgle, default, enhed) ────────────────────────────────
     UL_FIELDS = [
-        ("Tx power",         "ul_tx_dbm",   35.0,  "dBm"),
-        ("Tx ant. gain",     "ul_tx_dbi",   11.0,  "dBi"),
-        ("Tx kabeltab",      "ul_tx_loss",   2.0,  "dB"),
-        ("Rx ant. gain",     "ul_rx_dbi",   -5.0,  "dBi"),
-        ("Rx kabeltab",      "ul_rx_loss",   0.5,  "dB"),
+        ("Tx power",         "ul_tx_dbm",   23.0,  "dBm"),
+        ("Tx ant. gain",     "ul_tx_dbi",   -5.0,  "dBi"),
+        ("Tx kabeltab",      "ul_tx_loss",   0.5,  "dB"),
+        ("Rx ant. gain",     "ul_rx_dbi",   11.0,  "dBi"),
+        ("Rx kabeltab",      "ul_rx_loss",   2.0,  "dB"),
         ("Sensitivity",      "ul_sens_dbm", -102.0,"dBm"),
     ]
 
     DL_FIELDS = [
-        ("Tx power",         "dl_tx_dbm",   23.0,  "dBm"),
-        ("Tx ant. gain",     "dl_tx_dbi",   -5.0,  "dBi"),
-        ("Tx kabeltab",      "dl_tx_loss",   0.5,  "dB"),
-        ("Rx ant. gain",     "dl_rx_dbi",   11.0,  "dBi"),
-        ("Rx kabeltab",      "dl_rx_loss",   2.0,  "dB"),
+        ("Tx power",         "dl_tx_dbm",   35.0,  "dBm"),
+        ("Tx ant. gain",     "dl_tx_dbi",   11.0,  "dBi"),
+        ("Tx kabeltab",      "dl_tx_loss",   2.0,  "dB"),
+        ("Rx ant. gain",     "dl_rx_dbi",   -5.0,  "dBi"),
+        ("Rx kabeltab",      "dl_rx_loss",   0.5,  "dB"),
         ("Sensitivity",      "dl_sens_dbm", -102.0,"dBm"),
     ]
 
     COMMON_FIELDS = [
         ("Øvrige tab",       "misc_loss",    0.0,  "dB"),
         ("Fade margin",      "fade_margin", 10.0,  "dB"),
-        ("Frekvens",         "freq_mhz",  3779.0,  "MHz"),
+        ("Frekvens",         "freq_mhz",  3780.0,  "MHz"),
         ("Min. afstand",     "min_dist_m", 118.0,  "m"),
         ("Plotafstand",      "plot_km",     50.0,  "km"),
         ("gNB-højde h_t",    "h_gnb",        1.5,  "m"),
@@ -116,7 +110,6 @@ class LinkBudgetGUI:
 
         self._build_gui()
         self._attach_traces()
-        self._auto_plot_distance()
         self._calculate()
 
     # ── GUI-opbygning ─────────────────────────────────────────────────────────
@@ -140,8 +133,8 @@ class LinkBudgetGUI:
         # Uplink / Downlink kolonner
         link_frame = ttk.Frame(left)
         link_frame.grid(row=1, column=0, columnspan=4, sticky="ew", pady=(8, 4))
-        self._build_dir_col(link_frame, "Uplink  van → drone", self.UL_FIELDS, col=0)
-        self._build_dir_col(link_frame, "Downlink  drone → van", self.DL_FIELDS, col=1)
+        self._build_dir_col(link_frame, "Uplink  drone → van", self.UL_FIELDS, col=0)
+        self._build_dir_col(link_frame, "Downlink  van → drone", self.DL_FIELDS, col=1)
 
         # Fælles parametre
         com = ttk.LabelFrame(left, text="Fælles parametre", padding=8)
@@ -155,16 +148,15 @@ class LinkBudgetGUI:
 
         # Knapper
         for i, (txt, cmd) in enumerate([
-            ("Beregn",          self._calculate),
-            ("Auto plotafstand",self._auto_plot_distance),
-            ("Nulstil",         self._reset),
+            ("Beregn",  self._calculate),
+            ("Nulstil", self._reset),
         ]):
             ttk.Button(left, text=txt, command=cmd).grid(
                 row=3 + i, column=0, columnspan=4, sticky="ew", pady=(6 if i == 0 else 2, 2))
 
         ttk.Label(left, textvariable=self.result_var, justify="left",
                   font=("Segoe UI", 8), wraplength=370).grid(
-            row=6, column=0, columnspan=4, sticky="w", pady=(10, 0))
+            row=5, column=0, columnspan=4, sticky="w", pady=(10, 0))
 
         # Højre: Matplotlib-figur
         right = ttk.Frame(main)
@@ -368,7 +360,7 @@ class LinkBudgetGUI:
     def _full_range_km(self, direction: str, p: dict) -> float:
         """Udvid søgeafstand til link margin krydser 0 dB."""
         max_km = 1.0
-        min_km = p.get("min_dist_m", 118.0) / 1000
+        min_km = p["min_dist_m"] / 1000
         while max_km <= self.MAX_SEARCH_KM:
             d = self._distances(max_km, min_km)
             pl = self._pathloss(d, p)
@@ -378,21 +370,6 @@ class LinkBudgetGUI:
             max_km *= 2.0
         return self.MAX_SEARCH_KM
 
-    def _auto_plot_distance(self):
-        """Sæt plotafstand = 1.5 × uplink-rækkevidde."""
-        try:
-            self._busy = True
-            p = self._read()
-            p["plot_km"] = max(p.get("plot_km", 1.0), 1.0)
-            self._validate(p)
-            ul_range = self._full_range_km("uplink", p)
-            self.vars["plot_km"].set(f"{max(ul_range * 1.5, 1.0):.2f}")
-        except Exception:
-            pass
-        finally:
-            self._busy = False
-            self._calculate()
-
     # ── Hoved-beregning og plot ───────────────────────────────────────────────
 
     def _calculate(self):
@@ -401,6 +378,17 @@ class LinkBudgetGUI:
         try:
             p = self._read()
             self._validate(p)
+
+            # Auto-skalér x-aksen efter den største rækkevidde
+            self._busy = True
+            try:
+                ul_range = self._full_range_km("uplink", p)
+                dl_range = self._full_range_km("downlink", p)
+                auto_km = max(max(ul_range, dl_range) * 1.5, 1.0)
+                self.vars["plot_km"].set(f"{auto_km:.2f}")
+                p["plot_km"] = auto_km
+            finally:
+                self._busy = False
 
             d_km = self._distances(p["plot_km"], p["min_dist_m"] / 1000)
             pl   = self._pathloss(d_km, p)
@@ -432,13 +420,13 @@ class LinkBudgetGUI:
         txt = (
             f"Systemrækkevidde   : {sys_range:.2f} km\n"
             f"Plotafstand        : {p['plot_km']:.2f} km\n\n"
-            f"Uplink  (van→drone): {self._fmt_range(ul)}\n"
+            f"Uplink  (drone→van): {self._fmt_range(ul)}\n"
             f"  EIRP = {ul['eirp']:.1f} dBm\n"
-            f"Downlink(drone→van): {self._fmt_range(dl)}\n"
+            f"Downlink(van→drone): {self._fmt_range(dl)}\n"
             f"  EIRP = {dl['eirp']:.1f} dBm"
         )
         if p["ul_sens_dbm"] < -110 or p["dl_sens_dbm"] < -110:
-            txt += "\n\nADVARSEL: Sensitivity < -110 dBm: tjek at det er Prx-sensitivity,\n  ikke RSRP-threshold (Ligning 3.19)"
+            txt += "\n\n⚠ Sensitivity < -110 dBm: tjek at det er Prx-sensitivity,\n  ikke RSRP-threshold (Ligning 3.19)"
         self.result_var.set(txt)
 
     # ── Plot ──────────────────────────────────────────────────────────────────
@@ -446,8 +434,8 @@ class LinkBudgetGUI:
     def _plot(self, d_km, ul, dl):
         self.ax_ul.clear()
         self.ax_dl.clear()
-        self._plot_dir(self.ax_ul, d_km, ul, CLR["uplink"],   "Uplink: van → drone")
-        self._plot_dir(self.ax_dl, d_km, dl, CLR["downlink"], "Downlink: drone → van")
+        self._plot_dir(self.ax_ul, d_km, ul, CLR["uplink"],   "Uplink: drone → van")
+        self._plot_dir(self.ax_dl, d_km, dl, CLR["downlink"], "Downlink: van → drone")
         self.fig.tight_layout(pad=2.0)
         self.canvas.draw()
 
@@ -489,7 +477,7 @@ class LinkBudgetGUI:
         for _, key, default, _ in self._all_fields():
             self.vars[key].set(str(default))
         self._busy = False
-        self._auto_plot_distance()
+        self._calculate()
 
 
 if __name__ == "__main__":
