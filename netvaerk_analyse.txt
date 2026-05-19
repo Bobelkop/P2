@@ -6,31 +6,31 @@ Latency er i millisekunder (ms), packetloss er i procent
 === Downlink (15m) ===
 Afstand   |  15.6kbps  |  65.5kbps  |  250kbps   |   1mbps    |   4mbps    |
 ----------------------------------------------------------------------------
-39.0      |6 Kbps (4ms/0.00%)|43 Kbps (5ms/0.00%)|231 Kbps (5ms/0.00%)|520 Kbps (17ms/0.00%)|3.5 Mbps (13ms/0.00%)|
-1206.3    |6 Kbps (4ms/0.00%)|43 Kbps (4ms/0.00%)|231 Kbps (6ms/0.00%)|520 Kbps (13ms/0.01%)|3.5 Mbps (14ms/0.00%)|
-2258.2    |6 Kbps (4ms/0.00%)|43 Kbps (5ms/0.00%)|231 Kbps (8ms/0.00%)|520 Kbps (12ms/0.00%)|3.5 Mbps (23ms/0.05%)|
-2841.1    |6 Kbps (6ms/0.00%)|43 Kbps (4ms/0.00%)|231 Kbps (5ms/0.00%)|520 Kbps (16ms/0.00%)|3.5 Mbps (13ms/0.00%)|
+39.0      |    N/A     |    N/A     |    N/A     |    N/A     |    N/A     |
+1206.3    |    N/A     |    N/A     |    N/A     |    N/A     |    N/A     |
+2258.2    |    N/A     |    N/A     |    N/A     |    N/A     |    N/A     |
+2841.1    |    N/A     |    N/A     |    N/A     |    N/A     |    N/A     |
 
 === Downlink (120m) ===
 Afstand   |  15.6kbps  |  65.5kbps  |  250kbps   |   1mbps    |   4mbps    |
 ----------------------------------------------------------------------------
-125.3     |6 Kbps (6ms/0.00%)|43 Kbps (6ms/0.00%)|230 Kbps (7ms/0.00%)|519 Kbps (16ms/0.00%)|3.5 Mbps (20ms/0.00%)|
-1212.2    |6 Kbps (4ms/0.00%)|43 Kbps (5ms/0.00%)|231 Kbps (6ms/0.00%)|520 Kbps (15ms/0.01%)|3.5 Mbps (15ms/0.00%)|
-2261.7    |6 Kbps (7ms/0.00%)|43 Kbps (5ms/0.00%)|231 Kbps (9ms/0.00%)|520 Kbps (21ms/0.00%)|3.5 Mbps (18ms/0.00%)|
-2843.6    |6 Kbps (5ms/0.00%)|43 Kbps (5ms/0.00%)|231 Kbps (11ms/0.00%)|520 Kbps (18ms/0.00%)|3.5 Mbps (24ms/0.00%)|
+125.3     |    N/A     |    N/A     |    N/A     |    N/A     |    N/A     |
+1212.2    |    N/A     |    N/A     |    N/A     |    N/A     |    N/A     |
+2261.7    |    N/A     |    N/A     |    N/A     |    N/A     |    N/A     |
+2843.6    |    N/A     |    N/A     |    N/A     |    N/A     |    N/A     |
 
 === Uplink (15m) ===
 Afstand   |  15.6kbps  |  65.5kbps  |  250kbps   |   1mbps    |   4mbps    |
 ----------------------------------------------------------------------------
-39.0      |6 Kbps (24ms/0.00%)|43 Kbps (28ms/0.00%)|231 Kbps (25ms/0.00%)|520 Kbps (11ms/0.00%)|3.5 Mbps (10ms/0.00%)|
-1206.3    |6 Kbps (27ms/0.00%)|43 Kbps (23ms/0.00%)|231 Kbps (11ms/0.00%)|519 Kbps (10ms/0.00%)|3.5 Mbps (11ms/0.00%)|
-2258.2    |6 Kbps (23ms/0.00%)|43 Kbps (28ms/0.00%)|231 Kbps (25ms/0.00%)|519 Kbps (12ms/0.00%)|3.5 Mbps (31ms/0.00%)|
-2841.1    |6 Kbps (22ms/0.00%)|43 Kbps (25ms/0.00%)|231 Kbps (21ms/0.00%)|519 Kbps (19ms/0.02%)|3.5 Mbps (10ms/0.00%)|
+39.0      |    N/A     |    N/A     |    N/A     |    N/A     |    N/A     |
+1206.3    |    N/A     |    N/A     |    N/A     |    N/A     |    N/A     |
+2258.2    |    N/A     |    N/A     |    N/A     |    N/A     |    N/A     |
+2841.1    |    N/A     |    N/A     |    N/A     |    N/A     |    N/A     |
 
 === Uplink (120m) ===
 Afstand   |  15.6kbps  |  65.5kbps  |  250kbps   |   1mbps    |   4mbps    |
 ----------------------------------------------------------------------------
-125.3     |6 Kbps (31ms/0.00%)|43 Kbps (25ms/0.00%)|231 Kbps (14ms/0.00%)|519 Kbps (9ms/0.00%)|3.5 Mbps (10ms/0.00%)|
-1212.2    |6 Kbps (31ms/0.00%)|43 Kbps (27ms/0.00%)|231 Kbps (23ms/0.00%)|520 Kbps (13ms/0.00%)|3.5 Mbps (22ms/0.00%)|
-2261.7    |6 Kbps (25ms/0.00%)|43 Kbps (28ms/0.00%)|231 Kbps (25ms/0.00%)|519 Kbps (11ms/0.00%)|FAIL 3.5 Mbps (140ms/0.11%)|
-2843.6    |6 Kbps (28ms/0.00%)|43 Kbps (23ms/0.00%)|231 Kbps (20ms/0.00%)|520 Kbps (18ms/0.00%)|3.5 Mbps (13ms/0.01%)|
+125.3     |    N/A     |    N/A     |    N/A     |    N/A     |    N/A     |
+1212.2    |    N/A     |    N/A     |    N/A     |    N/A     |    N/A     |
+2261.7    |    N/A     |    N/A     |    N/A     |    N/A     |    N/A     |
+2843.6    |    N/A     |    N/A     |    N/A     |    N/A     |    N/A     |

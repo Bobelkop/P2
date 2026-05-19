@@ -23,6 +23,39 @@ def extract_rate(filename):
 
 
 # =========================
+# CSV → AFSTAND + HEIGHT
+# =========================
+def hent_afstande():
+    afstand_map = {}
+
+    with open(os.path.join(root_dir, "testlist.csv")) as f:
+        reader = csv.DictReader(f)
+
+        for row in reader:
+            try:
+                testnr = int(row["testnr"])
+
+                lat1 = float(row["latitude"])
+                lon1 = float(row["longitude"])
+
+                lat2 = float(row["drone_latitude"])
+                lon2 = float(row["drone_longitude"])
+
+                height = float(row["height"])
+
+                dist_2d = geodesic((lat1, lon1), (lat2, lon2)).meters
+                dist_3d = math.sqrt(dist_2d**2 + height**2)
+
+                afstand_map[testnr] = (round(dist_3d, 1), height)
+
+            except:
+                continue
+
+    return afstand_map
+
+
+
+# =========================
 # METRICS
 # =========================
 def calculate_packet_loss(seqs):
@@ -59,10 +92,20 @@ def calculate_throughput(lines):
     return throughput_kbps
 
 # =========================
-# ANALYSE
+# CALCULATE PERCENTILE
 # =========================
+def calculate_percentile(latencies, percentile):
+    if not latencies:
+        return None
 
-def analyse_test_file(file_path):
+    sorted_latencies = np.sort(latencies)
+    index = int(np.ceil(percentile / 100 * len(sorted_latencies))) - 1
+    return sorted_latencies[index]
+
+# =========================
+# ANALYSE WITH PERCENTILE ONLY
+# =========================
+def analyse_test_file_with_p99_9(file_path):
     with open(file_path, "r") as f:
         lines = f.readlines()
 
@@ -94,70 +137,30 @@ def analyse_test_file(file_path):
     duration = (max(timestamps) - min(timestamps)) / 1_000_000
     throughput = (total_bytes * 8) / duration / 1000  # Kbps
 
-    # latency og packetloss
-    avg_delay = np.mean(delays) / 1000  # µs → ms
-    packet_loss = calculate_packet_loss(seqs)
+    # Calculate 99.9% percentile
+    p99_9 = calculate_percentile(delays, 99.9) / 1000  # µs → ms
 
     # status (meget simpelt)
     status = "OK"
     reason = ""
 
-    if packet_loss > 5:
-        status = "FAIL"
-        reason = "PL"
-    elif avg_delay > 50:
+    if p99_9 > 50:  # Use P99.9 for status check
         status = "FAIL"
         reason = "LAT"
-
-    #print(f"Debug: File: {file_path}, Latency: {avg_delay:.4f} ms, Jitter: {jitter:.4f} ms, Status: {status}, Reason: {reason}")
 
     return {
         "status": status,
         "tp": throughput,
-        "lat": avg_delay,
-        "packet_loss": packet_loss,
+        "lat": p99_9,  # Replace average latency with P99.9
+        "packet_loss": calculate_packet_loss(seqs),
+        "p99_9": p99_9,  # Add p99_9 explicitly
         "reason": reason
     }
 
-
 # =========================
-# CSV → AFSTAND + HEIGHT
+# UPDATE PROCESS FOLDER
 # =========================
-def hent_afstande():
-    afstand_map = {}
-
-    with open(os.path.join(root_dir, "testlist.csv")) as f:
-        reader = csv.DictReader(f)
-
-        for row in reader:
-            try:
-                testnr = int(row["testnr"])
-
-                lat1 = float(row["latitude"])
-                lon1 = float(row["longitude"])
-
-                lat2 = float(row["drone_latitude"])
-                lon2 = float(row["drone_longitude"])
-
-                height = float(row["height"])
-
-                dist_2d = geodesic((lat1, lon1), (lat2, lon2)).meters
-                dist_3d = math.sqrt(dist_2d**2 + height**2)
-                dist = round(dist_3d, 1)
-
-
-                afstand_map[testnr] = (dist, height)
-
-            except:
-                continue
-
-    return afstand_map
-
-
-# =========================
-# LOAD DATA
-# =========================
-def process_folder(folder):
+def process_folder_with_p99_9(folder):
     table = {}
 
     files = glob.glob(os.path.join(folder, "**", "*.test"), recursive=True)
@@ -172,7 +175,7 @@ def process_folder(folder):
             continue
 
         testnr = int(match.group(1))
-        result = analyse_test_file(file_path)
+        result = analyse_test_file_with_p99_9(file_path)
 
         table.setdefault(testnr, {})[rate] = result
 
@@ -200,39 +203,28 @@ def split_by_height(table, afstand_map):
 
 
 # =========================
-# FORMAT CELL (rent output!)
+# FORMAT CELL WITH P99.9 LATENCY
 # =========================
-def format_cell(data):
-    if not data:
-        return "-"
-
-    status = data["status"]
-    tp = data["tp"]     # Kbps
-    lat = data["lat"]
-    packet_loss = data["packet_loss"]
-
-    # throughput format
-    if tp >= 1000:
-        speed = f"{tp/1000:.1f} Mbps"
+def format_cell_with_percentile(percentile_value):
+    # Check if the value is a number, otherwise return a placeholder
+    if isinstance(percentile_value, (int, float)):
+        return f"{percentile_value:.2f} ms"
     else:
-        speed = f"{tp:.0f} Kbps"
+        return "N/A"  # Placeholder for unsupported types
 
-    prefix = "" if status == "OK" else "FAIL "
-    return f"{prefix}{speed} ({lat:.0f}ms/{packet_loss:.2f}%)"
+
 # =========================
 # PRINT TABLE
 # =========================
 def print_table(title, table):
-   
     print(f"\n=== {title} ===")
 
-    col_width = 12
+    col_width = 20
 
     header = "Afstand".ljust(10) + "|"
     for r in rates:
         display_rate = r.replace("kbps", " Kbps").replace("mbps", " Mbps")
         header += display_rate.center(col_width) + "|"
-
 
     print(header)
     print("-" * len(header))
@@ -242,7 +234,16 @@ def print_table(title, table):
 
         for r in rates:
             value = table[d].get(r)
-            cell = format_cell(value)
+            if isinstance(value, dict):
+                # Extract the P99.9 latency, packet loss, and goodput values
+                latency = value.get("lat", None)
+                packet_loss = value.get("packet_loss", None)
+                goodput = value.get("tp", None)  # Goodput (throughput)
+                if latency is not None and packet_loss is not None and goodput is not None:
+                    value = f"{goodput:.2f} Kbps / {packet_loss:.2f}% / {latency:.2f} ms"
+                else:
+                    value = "N/A"
+            cell = value if isinstance(value, str) else format_cell_with_percentile(value)
             row += cell.center(col_width) + "|"
 
         print(row)
@@ -268,8 +269,8 @@ def print_legend():
 def lav_tabeller():
     afstand_map = hent_afstande()
 
-    uplink = process_folder(uplink_dir)
-    downlink = process_folder(downlink_dir)
+    uplink = process_folder_with_p99_9(uplink_dir)
+    downlink = process_folder_with_p99_9(downlink_dir)
 
     u15, u120 = split_by_height(uplink, afstand_map)
     d15, d120 = split_by_height(downlink, afstand_map)
@@ -287,13 +288,13 @@ def tabel_rows(table):
     for dist in sorted(table.keys()):
         row = [f"{dist:.1f}"]
         for rate in rates:
-            row.append(format_cell(table[dist].get(rate)))
+            row.append(format_cell_with_percentile(table[dist].get(rate)))
         rows.append(row)
     return rows
 
 
 def tabel_til_text(title, table):
-    col_width = 12
+    col_width = 30
     lines = [f"\n=== {title} ==="]
 
     header = "Afstand".ljust(10) + "|"
@@ -306,7 +307,17 @@ def tabel_til_text(title, table):
     for dist in sorted(table.keys()):
         row = str(dist).ljust(10) + "|"
         for rate in rates:
-            row += format_cell(table[dist].get(rate)).center(col_width) + "|"
+            value = table[dist].get(rate)
+            if isinstance(value, dict):
+                # Extract the P99.9 latency, packet loss, and goodput values
+                latency = value.get("lat", None)
+                packet_loss = value.get("packet_loss", None)
+                goodput = value.get("tp", None)  # Goodput (throughput)
+                if latency is not None and packet_loss is not None and goodput is not None:
+                    value = f"{goodput:.2f} Kbps / {packet_loss:.2f}% / {latency:.2f} ms"
+                else:
+                    value = "N/A"
+            row += value.center(col_width) + "|"
         lines.append(row)
 
     return "\n".join(lines)
@@ -315,9 +326,9 @@ def tabel_til_text(title, table):
 def lav_rapport(tables):
     parts = [
         "=== Forklaring ===",
-        "Format: Throughput (Latency / Packetloss)",
+        "Format: Throughput (P99.9 Latency / Packetloss)",
         "",
-        "Latency er i millisekunder (ms), packetloss er i procent",
+        "Throughput er i Kbps, P99.9 Latency er i millisekunder (ms), packetloss er i procent",
         tabel_til_text("Downlink (15m)", tables["downlink_15"]),
         tabel_til_text("Downlink (120m)", tables["downlink_120"]),
         tabel_til_text("Uplink (15m)", tables["uplink_15"]),
@@ -341,3 +352,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+

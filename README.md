@@ -2,7 +2,7 @@
 Dette repository er til P2 gruppe 230 på AAU.
 
 ## Overblik
-Projektet indeholder et Python-værktøj til at beregne og sammenligne radio-linkbudget/RSRP og SNR samt at analysere datarater (uplink/downlink) fra testdata.
+Projektet indeholder et Python-værktøj til at beregne og sammenligne radio-linkbudget/RSRP og SNR samt analysere datarater (uplink/downlink) fra testdata.
 
 Der er to måder at bruge værktøjet på:
 - **CLI** via `Rasp.py` (terminal-baseret menu)
@@ -40,57 +40,26 @@ Python 3.x og følgende pakker:
 - FreeSimpleGUI eller PySimpleGUI
 
 ## Installation
-Opret evt. et virtual environment og installer afhængigheder:
-
-```bash
-python -m venv .venv
-# Windows:
-.venv\Scripts\activate
-# macOS/Linux:
-source .venv/bin/activate
-
-pip install numpy geopy matplotlib FreeSimpleGUI
-```
-
-Hvis `FreeSimpleGUI` ikke kan installeres i jeres miljø, kan GUI'en også køre med:
-
-```bash
-pip install numpy geopy matplotlib PySimpleGUI
-```
+1. Installer de nødvendige Python-pakker:
+   ```bash
+   pip install -r requirements.txt
+   ```
+2. Sørg for, at `DATA/`-mappen er korrekt placeret i projektstrukturen.
 
 ## Sådan køres programmet (CLI)
 Kør:
-
 ```bash
 python Rasp.py
 ```
-
-Programmet spørger om mode:
-- **T** = teoretisk beregning (du indtaster afstand i km)
-- **M** = sammenligning med måledata (du indtaster drone- og gNB-koordinater)
-
-### Teoretisk mode (T)
-Du indtaster afstand (km) og får:
-- Pathloss + RSRP for FSPL
-- Pathloss + RSRP for Hata
-- Teoretisk SNR for begge modeller
-
-### Måle mode (M)
-Du indtaster:
-- gNB lokation (lat, lon) (standard: `57.0180391,9.7602773`)
-- drone lokation bruges pt. fra variablen `Drone_Lokation` i `Rasp.py`
-
-Herefter sammenlignes teoretiske beregninger mod målt RSRP/SNR fra `cell_log.json`.
-
-**Vigtigt:** I `Rasp.py` er `root_dir` pt. sat til en lokal Windows-sti. For at det virker på andre computere, skal `root_dir` pege på jeres `DATA`-mappe (se afsnittet “Kendte ting der skal tilpasses”).
+CLI’en giver mulighed for:
+- Beregning af teoretisk RSRP og SNR baseret på afstand og frekvens.
+- Sammenligning af måledata med teoretiske værdier.
 
 ## Sådan køres programmet (GUI)
 Kør:
-
 ```bash
 python Rasp_gui.py
 ```
-
 GUI’en har faner:
 - **Teoretisk**: beregn for en afstand
 - **Måling**: beregn ud fra drone/gNB koordinater + målt reference
@@ -100,7 +69,6 @@ GUI’en har faner:
 ## Dataformat
 ### `DATA/testlist.csv`
 Indeholder metadata pr. test:
-
 - `testnr`
 - `latitude`, `longitude`
 - `timestamp`
@@ -118,7 +86,6 @@ Filerne bruges til at analysere uplink/downlink datarater pr. test (fx ved forsk
 
 ## Kendte ting der skal tilpasses
 I `Rasp.py` skal variablen `root_dir` ændres, så den peger på repo’ets data, fx til noget i stil med:
-
 - `DATA/raspberrypi-downlink` eller
 - hele `DATA`-mappen
 
